@@ -6,29 +6,46 @@
 ;/*     The strings can be either enclosed by double quotes or by    */
 ;/*     single quotation marks.                                      */
 ;/*     The kind of created string (Unicode or ASCII) depends on the */
-;/*     __UNICODE__ equate. If this equate is defined and has a      */
-;/*     nonzero value, a unicode string is created. However, creation*/
-;/*     of Unicode strings can be forced by using the 'L'-prefix:    */
+;/*     __UNICODE__ or UNICODE-equate. If one of these equates is    */
+;/*     defined, unicode string are created.                         */
+;/*     However, Unicode strings can be forced by using              */
+;/*     the 'L'-prefix:                                              */
 ;/*                 L"my string" or L'my string'                     */
 ;/*     ASCII strings can be forced by using the A-prefix:           */
 ;/*                 A"my string" or A'my string'                     */
 ;/*     MASM's reserved characters like exclamation marks, angel     */
 ;/*     brackets and single brackets [,...] can not be used.         */
-;/*     (use fncx for escape sequences support)                      */
+;/*     (use fnc for escape sequences support)                       */
 ;/*   - ADDR-expressions can be shorten by using a ampersand '&':    */
 ;/*         fn MessageBoxW,0,&wsz[0],L'xyz',0                        */
-;/*   - Pointers to DWORDs can be dereferenced, if they are leaded   */
-;/*     by '*' (like dereferencing in c/c++):                        */
+;/*   - x86-32: Pointers to DWORDs can be dereferenced, if they are  */
+;/*     leaded by '*' (like dereferencing in c/c++):                 */
 ;/*                fnx MesageBox,0,*ppchar,...                       */
+;/*     The produced code is thread safe.                            */
 ;/*   - a optional destination can be specified in front of the      */
 ;/*     function:                                                    */
 ;/*         fn dest=FncName,...                                      */
-;/*   - expression evaluation:
+;/*   - x86-32: expression evaluation is possible, if                */
+;/*     the SmplMath-macros are used.                                */
+;/*     A leading colon (':') or equal sign ('=') indicates an       */
+;/*     expression, which should be solved by the SmplMath macros.   */
+;/*     If a colon is used, the expression's result is retuned as an */
+;/*     integer (SDWORD). For an equal sign a REAL4 is retuned.      */
+;/*     For both, colon and equal sign, the return type can be       */
+;/*     overwritten by using the following prefixes: r4,r8,i4        */
+;/*     Examples:                                                    */
+;/*             fn ... , : a+b*2 ,...    ; a SDWORD is passed        */
+;/*                    , = a+b*3 ,...    ; " REAL4  "    "           */
+;/*                    , r8= a+b ,...    ; " REAL8  "    "           */
+;/*                    , r8: a+b ,...    ; " REAL8  "    "           */
+;/*                    , i4=x^2  ,...    ; " SDWORD "    "           */
+;/*     According to the expression's return type, the macros        */
+;/*     @fSlv4/8/I() are used.                                       */
 ;/*                                                                  */
 ;/* Example:                                                         */
 ;/*     fn MessageBoxW,0,L"my string",&wsz[0],0                      */
 ;/*     fn hWnd = CreateWindowEx,...                                 */
-;/*                                                     qWord, 2011  */
+;/*                                                     qWord, 2012  */
 ;/********************************************************************/
 fn MACRO FncName:req,args:VARARG
 
@@ -50,14 +67,18 @@ fn MACRO FncName:req,args:VARARG
 
     ;/* if available, fill the specified destination */    
     IF fnex_flag EQ 1
-        mov fnex_dest,eax
+    	IF @WordSize EQ 4
+        	mov fnex_dest,eax
+        ELSE
+        	mov fnex_dest,rax
+        ENDIF
     ENDIF
 endm
 
 
 ;/********************************************************************/
 ;/*                     fnc - macro procedure                        */
-;/* This macro behave like the fnx-macros, except, that it adds      */
+;/* This macro behave like the fn-macro, except, that it adds        */
 ;/* support for escape sequences:                                    */
 ;/*     \\  ->  "\"                                                  */
 ;/*     \t  ->  tab                                                  */
@@ -73,7 +94,7 @@ endm
 ;/*     \0  ->  zero                                                 */
 ;/* Example:                                                         */
 ;/*     fnc MessageBox,0,"my string\n",&wsz[0],0                     */
-;/*                                                     qWord, 2011  */
+;/*                                                     qWord, 2012  */
 ;/********************************************************************/
 fnc MACRO FncName:req,args:VARARG
 
@@ -95,7 +116,11 @@ fnc MACRO FncName:req,args:VARARG
 
     ;/* if available, fill the specified destination */    
     IF fnex_flag EQ 1
-        mov fnex_dest,eax
+    	IF @WordSize EQ 4
+        	mov fnex_dest,eax
+        ELSE
+        	mov fnex_dest,rax
+        ENDIF
     ENDIF
 endm
 
@@ -106,7 +131,7 @@ endm
 ;/* Example:                                                         */
 ;/*      mov edi,rv(myFunction,L"my string",&wsz[0],...)             */
 ;/*      .break .if !rv(dest=myFunction,...)                         */
-;/*                                                     qWord, 2011  */
+;/*                                                     qWord, 2012  */
 ;/********************************************************************/
 rv MACRO FncName:req,args:VARARG
     
@@ -128,9 +153,17 @@ rv MACRO FncName:req,args:VARARG
     
     ;/* if available, fill the specified destination */
     IF rvex_flag EQ 1
-        mov rvex_dest,eax
+    	IF @WordSize EQ 4
+        	mov rvex_dest,eax
+        ELSE
+        	mov rvex_dest,rax
+        ENDIF
     ENDIF
-    EXITM <eax>
+    IF @WordSize EQ 4
+    	EXITM <eax>
+    ELSE
+    	EXITM <rax>
+    ENDIF
 endm
 
 ;/********************************************************************/
@@ -151,7 +184,7 @@ endm
 ;/*     \0  ->  zero                                                 */
 ;/* Example:                                                         */
 ;/*     mov edi,rvc(myFunction,L"my string\x\n",&wsz[0],...)         */
-;/*                                                     qWord, 2011  */
+;/*                                                     qWord, 2012  */
 ;/********************************************************************/
 rvc MACRO FncName:req,args:VARARG
     
@@ -173,60 +206,20 @@ rvc MACRO FncName:req,args:VARARG
     
     ;/* if available, fill the specified destination */
     IF rvex_flag EQ 1
-        mov rvex_dest,eax
+    	IF @WordSize EQ 4
+        	mov rvex_dest,eax
+        ELSE
+        	mov rvex_dest,rax
+        ENDIF
     ENDIF
-    EXITM <eax>
+    IF @WordSize EQ 4
+    	EXITM <eax>
+    ELSE
+    	EXITM <rax>
+    ENDIF
 endm
 
-;/******************************************************************/ 
-;/*                 repargs , macro function                       */
-;/* Parse the arguments list 'args' and replace:                   */
-;/*     - String literals by the corresponding OFFSET-expression   */
-;/*       after creating an anonym string in the .data-section     */
-;/*     - leading ampersands (&) by the ADDR operator              */
-;/*     - dereferencing of pointers, if the leading char. is a '*' */
-;/* All other arguments are left untouched.                        */
-;/*                                                                */
-;/* Parameter:   cstr: indicates whether to support escape         */
-;/*                    sequences in string literals or not {0,1}   */
-;/*              args: arguments to parse                          */
-;/* Details:                                                       */
-;/*     This macro creates, according to the __UNICODE__-equate,   */
-;/*     either ASCII or Unicode strings. However, Unicode strings  */
-;/*     can be forced by using the 'L'-Prefix:                     */
-;/*       L"my unicode string"  or L'my "quoted" string'           */
-;/*     ASCII string can be forced by the 'A'-prefix:              */
-;/*       A"my ASCII string"  or A'xyz 1234 '                      */
-;/*     Furthermore, ampersands are replaced by <ADDR >, if they   */
-;/*     are the first character of the argument:                   */
-;/*        ..., &sz[0],...    ->   ..., ADDR sz[0],...             */
-;/*     If the leading char. is a <*>, the argument is             */
-;/*     interpreted as a pointer to a DWORD, which is loaded:      */
-;/*         mov pchar, chr$("xyz")                                 */
-;/*         lea eax,pchar                                          */
-;/*         mov ppchar,eax                                         */
-;/*         fn MessageBox,0,*ppchar,...                            */
-;/*                                                                */
-;/* Return:                                                        */
-;/*     The processed argument list. If a nonempty list is passed  */
-;/*     to the macro, the returned list is always leaded           */
-;/*     by a comma:                                                */
-;/*         <arg1,arg2,...> -> <,newArg1,newArg2,...>              */
-;/*     The number of arguments in list is stored in               */
-;/*     the equate repargs_cntr.                                   */
-;/*                                                                */
-;/* Remarks:                                                       */
-;/*     This macro is designed to process arguments lists for      */
-;/*     the INVOKE-directive.                                      */
-;/*     The macro assumes to be called from the .code-section      */
-;/*                                                                */
-;/* Example:                                                       */
-;/*     invk_txt TEXTEQU <invoke FncName>                          */
-;/*     invk_txt CATSTR invk_txt,repargs(0,ArgumentList)           */
-;/*     invk_txt                                                   */
-;/*                                                                */
-;/*                                                  qWord, 2011   */
-;/******************************************************************/ 
+; internal macro
 repargs MACRO cstr:=<0>,args:VARARG
     
     ;/* initialize global counter which */
@@ -237,9 +230,10 @@ repargs MACRO cstr:=<0>,args:VARARG
 
     repargs_unicode = 0
     IFDEF __UNICODE__		; used by teh MASM32-package v11+
-        IF __UNICODE__
-            repargs_unicode = 1
-        ENDIF
+        repargs_unicode = 1
+    ENDIF
+    IFDEF UNICODE			; WinInc
+    	repargs_unicode = 1
     ENDIF
     
     ;/* count arguments (needed for dereferencing operator) */
@@ -319,6 +313,9 @@ repargs MACRO cstr:=<0>,args:VARARG
         ELSEIF repargs_pos7 EQ 1
             ;/* replace '&' with <ADDR > and append argument to list */
             repargs_args TEXTEQU repargs_args,<,>,<ADDR >,@SubStr(%repargs_txt,2,)
+        ELSEIF repargs_pos8 EQ 1 AND @WordSize NE 4
+        	.err <dereferencing not supported in current CPU mode>
+        	repargs_args TEXTEQU repargs_args,<,>,<0>
         ELSEIF repargs_pos8 EQ 1
             ;/* dereference operator '*' */
 
@@ -326,7 +323,7 @@ repargs MACRO cstr:=<0>,args:VARARG
 
             ;/* register ? */
             IF ((OPATTR repargs_txt) AND 10000y) NE 0
-                repargs_args TEXTEQU repargs_args,<,>,<DWORD ptr [>,repargs_txt,<]>
+               	repargs_args TEXTEQU repargs_args,<,>,<DWORD ptr [>,repargs_txt,<]>
             ELSE
                 IFE repargs_eax_saved
                     mov DWORD ptr [esp-4],eax
@@ -348,12 +345,12 @@ repargs MACRO cstr:=<0>,args:VARARG
         repargs_cntr = repargs_cntr + 1
     ENDM
     IF repargs_eax_saved
-        mov eax,DWORD ptr [esp-4]
+       	mov eax,DWORD ptr [esp-4]
     ENDIF
     EXITM repargs_args
 endm
 
-; ASCII-C-string
+; internal macro: ASCII counterpart of WCSTR (unicode.inc)
 ?cstr? MACRO lbl,args:VARARG
 
     IFNDEF ?cstr?_lbl_cntr

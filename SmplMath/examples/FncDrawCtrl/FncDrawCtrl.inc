@@ -1,3 +1,5 @@
+;/* class name: FncDrawCtrl32 */
+CLASS_FNCDRWCTRL EQU "FncDrawCtrl32"
 
 ;/* define prototye of callback-function */
 CB_FNC_VALUE typedef proto STDCALL x:REAL8,py: ptr REAL8

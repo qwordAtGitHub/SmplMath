@@ -419,12 +419,12 @@ endm
 
 
 
-; shows a list in build-console
+; shows a list in the build-console
 ; LLName:			name of list
 ; nDataRecords:		number of columns to show
 ; ColumnWidth:		global column width
 ; bTblEx:			show iNode,fLink and bLink of each node
-; ClmnOptn:			a list of option for each column:
+; ClmnOptn:			a list of options for each column:
 ;					width=0...80	overwrite global column width
 ;					hex={0,1}		assumes data of current column are numeric - show them in hexadecimal notation
 ;					ralgin={0,1}	align current cells content right

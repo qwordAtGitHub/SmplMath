@@ -1,6 +1,7 @@
-; by qWord, 2011
+; by qWord, 2012
 
 IFNDEF __SMPLMATH__UNICODE__
+__SMPLMATH__UNICODE__ TEXTEQU <>
 
 ;/*****************************************************************/
 ;/*             WSTR - macro procedure                            */
@@ -19,7 +20,7 @@ IFNDEF __SMPLMATH__UNICODE__
 ;/*            angle brackets and exclemation marks.              */
 ;/* Example:                                                      */
 ;/*          WSTR myStr, "my string",13,10,'"quoted"',0           */
-;/*                                                  qWord, 2011  */
+;/*                                                  qWord, 2012  */
 ;/*****************************************************************/
 WSTR MACRO lbl,args:VARARG
     
@@ -117,7 +118,7 @@ endm
 ;/* in the .data-section.                           */
 ;/* Example:                                        */
 ;/*      mov esi,w$("my string",13,10,'xxyz')       */
-;/*                                    qWord, 2011  */
+;/*                                    qWord, 2012  */
 ;/***************************************************/
 w$ MACRO args:VARARG
     .data
@@ -147,7 +148,7 @@ endm
 ;/*                                                               */
 ;/* Example:                                                      */
 ;/*       WCSTR myStr, "line 1\nline2\nI'm here\x",0              */
-;/*                                                  qWord, 2011  */
+;/*                                                  qWord, 2012  */
 ;/*****************************************************************/
 WCSTR MACRO lbl,args:VARARG
 
@@ -268,7 +269,7 @@ endm
 ;/* from the .code-section and places the string    */
 ;/* in the .data-section.                           */
 ;/*     mov esi,wc$("\lHello World\r\n:-\b")        */
-;/*                                    qWord, 2011  */
+;/*                                    qWord, 2012  */
 ;/***************************************************/
 wc$ MACRO args:VARARG
     .data
@@ -330,8 +331,6 @@ SML_CHI     EQU <03C7h>
 SML_PSI     EQU <03C8h>
 SML_OMEGA   EQU <03C9h>
 
-ELSE
-	__SMPLMATH__UNICODE__ TEXTEQU <>
 ENDIF
 
 

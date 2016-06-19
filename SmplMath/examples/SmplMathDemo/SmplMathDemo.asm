@@ -75,7 +75,7 @@ LOCAL fSlvTLS()
 	fSlv rect.right  = 0.75  * rv(GetSystemMetrics,SM_CXSCREEN)
 	fSlv rect.bottom = 0.75  * rv(GetSystemMetrics,SM_CYSCREEN)
 	
-	mov edi,rv(CreateWindowEx,0,wc.lpszClassName,chr$("SmplMathDemo"),WS_SYSMENU or WS_SIZEBOX or WS_VISIBLE or WS_MINIMIZEBOX or WS_MAXIMIZEBOX or WS_CLIPCHILDREN,rect.left,rect.top,rect.right,rect.bottom,0,0,wc.hInstance,0)
+	mov edi,rv(CreateWindowEx,0,wc.lpszClassName,"SmplMathDemo",WS_SYSMENU or WS_SIZEBOX or WS_VISIBLE or WS_MINIMIZEBOX or WS_MAXIMIZEBOX or WS_CLIPCHILDREN,rect.left,rect.top,rect.right,rect.bottom,0,0,wc.hInstance,0)
 	invoke UpdateWindow,edi
 	invoke ShowWindow,edi,SW_SHOWNORMAL	
 	
@@ -100,6 +100,7 @@ LOCAL x:REAL8,y:REAL8
 LOCAL cv:CURR_VIEW
 LOCAL li:LABEL_INFOA
 LOCAL graphics:PVOID
+LOCAL fSlvTLS()
 
 	.if uMsg == WM_CLOSE
 		invoke PostQuitMessage,0
@@ -121,39 +122,40 @@ LOCAL graphics:PVOID
 		;/* overwrite default control settings  */
 		;/*-------------------------------------*/
 		mov li.flg,PEN__ARGB or TXTBRUSH__ARGB
-		mov li.pen,0ff0f0fffh
-		mov li.penTxt,0
-		mov li.brushTxt,0ff000000h
-		m2m li.emHeight,FP4(4.0)
+		ldl li.pen = 0ff0f0fffh
+		ldl li.penTxt = 0
+		ldl li.brushTxt = 0ff000000h
+		ldl li.emHeight = 4.0
 		mov li.pszFontFam,chr$("Arial")
 		mov li.pszFormatX,chr$("%.2f")
 		mov li.pszFormatY,chr$("%.1f")
-		mov li.flgXlbl,ALP_X_DEFAULT
-		mov li.flgYlbl,ALP_Y_DEFAULT
-		m2m li.markSize,FP4(1.5)
-		m2m li.pen_width,FP4(0.75)
-		m2m li.penTxt_width,FP4(0.75)
-		d2d li.xMultipleOf,FP8(3.141)
-		d2d li.yMultipleOf,FP8(1.0)
-		mov li.nxMarks,5
-		mov li.nyMarks,4
-		m2m li.frame.top,FP4(8.0)
-		m2m li.frame.left,FP4(8.0)
-		m2m li.frame.right,FP4(8.0)
-		m2m li.frame.bottom,FP4(8.0)
-		mov li.xLblOffX,0
-		mov li.xLblOffY,0
-		mov li.yLblOffX,0
-		mov li.yLblOffY,0
+		
+		ldl li.flgXlbl = ALP_X_DEFAULT
+		ldl li.flgYlbl = ALP_Y_DEFAULT
+		ldl li.markSize = 1.5
+		ldl li.pen_width = 0.75
+		ldl li.penTxt_width = 0.75
+		ldl li.xMultipleOf = 3.141
+		ldl li.yMultipleOf  = 1.0
+		ldl li.nxMarks = 5
+		ldl li.nyMarks = 4
+		ldl li.frame.top = 8.0
+		ldl li.frame.left = 8.0
+		ldl li.frame.right = 8.0
+		ldl li.frame.bottom = 8.0
+		ldl li.xLblOffX = 0
+		ldl li.xLblOffY = 0
+		ldl li.yLblOffX = 0
+		ldl li.yLblOffY = 0
 		invoke SendMessage,edi,FDCM_SET_LABEL_INFOA,ADDR li,0
 
 		;/*-------------------------------------*/
 		;/* set view                            */
 		;/*-------------------------------------*/
-		d2d cv.xMax,FP8(9.42477)
-		d2d cv.xMin,FP8(-3.141)
-		d2d cv.yMax,FP8(3.0)
-		d2d cv.yMin,FP8(-1.0)		
+		ldl cv.xMax = 9.42477
+		ldl cv.xMin = -3.141
+		ldl cv.yMax = 3.0
+		ldl cv.yMin = -1.0		
 		invoke SendMessage,edi,FDCM_SET_CURR_VIEW,ADDR cv,0
 
 		;/*-------------------------------------*/
@@ -163,7 +165,7 @@ LOCAL graphics:PVOID
 		mov fncdscptr.nPoints,500
 		mov fncdscptr.pCallBack,OFFSET CallBack1
 		mov fncdscptr.pen,ColorsSalmon
-		m2m fncdscptr._width,FP4(0.5)
+		ldl fncdscptr._width = 0.5
 		invoke SendMessage,edi,FDCM_ADD_FUNCTION,ADDR fncdscptr,0
 	
 		mov fncdscptr.pCallBack,OFFSET CallBack2
@@ -261,11 +263,9 @@ CallBack3 proc x:REAL8,py: ptr REAL8
 	
 	mov edx,py
 	
-	fSlv x = x - 2
+	fSlv REAL8 ptr [edx] = 3*e^(-1.7*abs((x-2)))*sin(20*(x-2)) + 2
 	
-	fSlv REAL8 ptr [edx] = 3*e^(-1.7*abs(x))*sin(20*x) + 2
 	
-		
 	ret
 	
 CallBack3 endp

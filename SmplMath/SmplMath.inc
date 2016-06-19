@@ -85,11 +85,41 @@ fSolve macro expr:VARARG
 				mov edx,DWORD ptr [esp-4]
 			ENDIF
 		ELSE
-			IF @IsIntegerType(%fslvm_dest)
-				fistp fslvm_dest
+			IF @MatchStrI(%fslvm_dest,1,st0,st1,st2,st3,st4,st5,st6)
+				fstp st(msi_index)
 			ELSE
-				fstp fslvm_dest
+				IF @IsIntegerType(%fslvm_dest)
+					fistp fslvm_dest
+				ELSE
+					fstp fslvm_dest
+				ENDIF
 			ENDIF
+		ENDIF
+	ENDIF
+	IF @fslv_test_attribute(<pop>,<:>,0)
+		IF fsta_value GT 0
+			REPEAT fsta_value
+				fstp st(0)
+			ENDM
+		ENDIF
+	ENDIF
+	IF @fslv_test_attribute(<free>,<:>,0)
+		fslv_tmp_i INSTR 1,fsta_value,<->
+		IF fslv_tmp_i EQ 0
+			ffree st(fsta_value)
+		ELSE
+			fslv_tmp_i1 SUBSTR fsta_value,1,fslv_tmp_i-1
+			fslv_tmp_i2 SUBSTR fsta_value,fslv_tmp_i+1
+			IF fslv_tmp_i2 LT fslv_tmp_i1
+				fslv_tmp_i = fslv_tmp_i2
+				fslv_tmp_i2 = fslv_tmp_i1
+				fslv_tmp_i1 = fslv_tmp_i
+			ENDIF
+			fslv_tmp_i = fslv_tmp_i1
+			REPEAT fslv_tmp_i2 - fslv_tmp_i1 + 1
+				ffree st(fslv_tmp_i)
+				fslv_tmp_i = fslv_tmp_i + 1
+			ENDM
 		ENDIF
 	ENDIF
 endm
@@ -157,10 +187,14 @@ fSlv4 macro expr:VARARG
 				mov edx,DWORD ptr [esp-4]
 			ENDIF
 		ELSE
-			IF @IsIntegerType(%fslvm_dest)
-				fistp fslvm_dest
+			IF @MatchStrI(%fslvm_dest,1,st0,st1,st2,st3,st4,st5,st6)
+				fstp st(msi_index)
 			ELSE
-				fstp fslvm_dest
+				IF @IsIntegerType(%fslvm_dest)
+					fistp fslvm_dest
+				ELSE
+					fstp fslvm_dest
+				ENDIF
 			ENDIF
 		ENDIF
 	ENDIF	
@@ -229,10 +263,14 @@ fSlv8 macro expr:VARARG
 				mov edx,DWORD ptr [esp-4]
 			ENDIF
 		ELSE
-			IF @IsIntegerType(%fslvm_dest)
-				fistp fslvm_dest
+			IF @MatchStrI(%fslvm_dest,1,st0,st1,st2,st3,st4,st5,st6)
+				fstp st(msi_index)
 			ELSE
-				fstp fslvm_dest
+				IF @IsIntegerType(%fslvm_dest)
+					fistp fslvm_dest
+				ELSE
+					fstp fslvm_dest
+				ENDIF
 			ENDIF
 		ENDIF
 	ENDIF
@@ -300,10 +338,14 @@ fSlv10 macro expr:VARARG
 				mov edx,DWORD ptr [esp-4]
 			ENDIF
 		ELSE
-			IF @IsIntegerType(%fslvm_dest)
-				fistp fslvm_dest
+			IF @MatchStrI(%fslvm_dest,1,st0,st1,st2,st3,st4,st5,st6)
+				fstp st(msi_index)
 			ELSE
-				fstp fslvm_dest
+				IF @IsIntegerType(%fslvm_dest)
+					fistp fslvm_dest
+				ELSE
+					fstp fslvm_dest
+				ENDIF
 			ENDIF
 		ENDIF
 	ENDIF
@@ -882,129 +924,6 @@ ldl macro args:VARARG
 	ENDM
 endm
 
-;; mov REAL4 to mem32 using eax
-;llr4 macro args:VARARG
-;	FOR _arg,<&args>
-;		llr4_pos INSTR 1,<&_arg>,<=>
-;		IFE llr4_pos
-;			.err <syntax error: expect <=>>
-;			EXITM
-;		ENDIF
-;		llr4_var SUBSTR <&_arg>,1,llr4_pos-1
-;		llr4_value SUBSTR <&_arg>,llr4_pos+1
-;		llr4_value TEXTEQU @TrimStr(%llr4_value)
-;
-;		IFE @ScanForFlt(1,%llr4_value,blanks)
-;		%	.err <not a number: llr4_value>
-;			EXITM
-;		ENDIF
-;	%	IF (TYPE llr4_var) NE (TYPE REAL4)
-;		%	.err <invalid typed variable: llr4_var>
-;			EXITM
-;		ENDIF
-;		IF @InStr(1,<0 0.0>,%llr4_value) EQ 0
-;			push 123456789
-;			org $-4
-;			IF sff_type EQ 1
-;				REAL4 llr4_value
-;			ELSE
-;			%	REAL4 &llr4_value&.0
-;			ENDIF
-;			pop DWORD ptr llr4_var
-;		ELSE
-;			mov DWORD ptr llr4_var,0
-;		ENDIF
-;	ENDM
-;endm
-;
-;llr8 macro args:VARARG
-;	FOR _arg,<&args>
-;		llr8_pos INSTR 1,<&_arg>,<=>
-;		IFE llr8_pos
-;			.err <syntax error: expect <=>>
-;			EXITM
-;		ENDIF
-;		llr8_var SUBSTR <&_arg>,1,llr8_pos-1
-;		llr8_value SUBSTR <&_arg>,llr8_pos+1
-;		llr8_value TEXTEQU @TrimStr(%llr8_value)
-;
-;		IFE @ScanForFlt(1,%llr8_value,blanks)
-;		%	.err <not a number: llr8_value>
-;			EXITM
-;		ENDIF
-;	%	IF (TYPE llr8_var) NE (TYPE REAL8)
-;		%	.err <invalid typed variable: llr8_var>
-;			EXITM
-;		ENDIF
-;		IF @InStr(1,<0 0.0>,%llr8_value) EQ 0
-;			push 123456789
-;			org $-4
-;			IF sff_type EQ 1
-;				REAL8 llr8_value
-;			ELSE
-;			%	REAL8 &llr8_value&.0
-;			ENDIF
-;			org $-4
-;			IF sff_type EQ 1
-;				REAL8 llr8_value
-;			ELSE
-;			%	REAL8 &llr8_value&.0
-;			ENDIF
-;			org $-8
-;			db 8Dh,49h,0		; lea ecx,[ecx+0] = nop
-;			db 068h				; push imm32
-;			org $+4
-;			pop DWORD ptr llr8_var+4
-;			pop DWORD ptr llr8_var
-;		ELSE
-;			mov DWORD ptr llr8_var,0
-;			mov DWORD ptr llr8_var+4,0
-;		ENDIF
-;	ENDM
-;endm
-;
-;lli8 macro args:VARARG
-;	FOR _arg,<&args>
-;		lli8_pos INSTR 1,<&_arg>,<=>
-;		IFE lli8_pos
-;			.err <syntax error: expect <=>>
-;			EXITM
-;		ENDIF
-;		lli8_var SUBSTR <&_arg>,1,lli8_pos-1
-;		lli8_value SUBSTR <&_arg>,lli8_pos+1
-;		lli8_value TEXTEQU @TrimStr(%lli8_value)
-;		
-;		IFE @ScanForFlt(1,%lli8_value,blanks)
-;		%	.err <not a number: lli8_value>
-;			EXITM
-;		ENDIF
-;		IF sff_type NE 2
-;		%	.err <integer value expected: lli8_value>
-;			EXITM
-;		ENDIF
-;	%	IF (TYPE lli8_var) NE (TYPE QWORD)
-;		%	.err <invalid typed variable: lli8_var>
-;			EXITM
-;		ENDIF
-;		IF @InStr(1,<0 0.0>,%lli8_value) EQ 0
-;			push 123456789
-;			org $-4
-;			QWORD lli8_value
-;			org $-4
-;			QWORD lli8_value
-;			org $-8
-;			db 8Dh,49h,0		; lea ecx,[ecx+0] = nop
-;			db 068h				; push imm32
-;			org $+4
-;			pop DWORD ptr lli8_var+4
-;			pop DWORD ptr lli8_var
-;		ELSE
-;			mov DWORD ptr lli8_var,0
-;			mov DWORD ptr lli8_var+4,0
-;		ENDIF
-;	ENDM
-;endm
-
 ;; mov REAL8 to mem64 using edx and eax
 ;llr8 macro Var,value
 ;	IFE @ScanForFlt(1,<&value>,blanks)
@@ -1094,7 +1013,7 @@ r4IsValid macro mem32:req
 endm
 
 r8IsValid macro mem64:req
-	push DWORD ptr mem32+4
+	push DWORD ptr mem64+4
 	and DWORD ptr [esp],7FF00000h
 	xor DWORD ptr [esp],7FF00000h
 	lea esp,[esp+4]
@@ -1407,17 +1326,31 @@ fcmpx macro cmpSuffix,approxEQ:=<0>,args:VARARG ;cmpSuffix,approxEQ:=<0>,a:req,b
 	ENDIF
 endm
 
-R4 macro value:req
-	EXITM R??(4,value)
-endm
-
-R8 macro value:req
-	EXITM R??(8,value)
-endm
-
-R10 macro value:req
-	EXITM R??(10,value)
-endm
+IF @WordSize NE 8
+	R4 macro value:req
+		EXITM R??(4,value)
+	endm
+	
+	R8 macro value:req
+		EXITM R??(8,value)
+	endm
+	
+	R10 macro value:req
+		EXITM R??(10,value)
+	endm
+ELSE
+	_R4 macro value:req
+		EXITM R??(4,value)
+	endm
+	
+	_R8 macro value:req
+		EXITM R??(8,value)
+	endm
+	
+	_R10 macro value:req
+		EXITM R??(10,value)
+	endm
+ENDIF
 
 R?? macro num:req,value:req
 	??R&num&_value TEXTEQU <&value>

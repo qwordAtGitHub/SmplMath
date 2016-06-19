@@ -48,7 +48,18 @@ ll_fSlv macro SlvPath,SubExpr
 		lfs_stack_cntr = lfs_st_max + 1
 	ENDIF
 	IF @fslv_test_attribute(<stck>,<:>,0)
-		lfs_stack_cntr = lfs_stack_cntr + fsta_value
+		IF lfs_st_max EQ -1 AND fsta_value GT 0	; 20012012
+			lfs_stack_cntr = fsta_value			;
+		ELSE									;
+			IF lfs_st_max+1 GT fsta_value		;
+				lfs_stack_cntr = lfs_st_max + 1	;
+				.err <Attribute <stck:N>: the number of used FPU registers in expression is greater than N>
+			ELSE								;
+				lfs_stack_cntr = fsta_value		;
+				lfs_st_max = fsta_value - 1		;
+			ENDIF								;
+		ENDIF									;
+		;lfs_stack_cntr = lfs_stack_cntr + fsta_value
 	ENDIF
 	
 	;-----------------------------------------

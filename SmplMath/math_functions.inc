@@ -4,6 +4,7 @@ comment *
     cos(x)
     tan(x)
     atan(x)
+    atan2(y,x)              ; = atan(y/x)
     asin(x)
     acos(x)
     exp(x)					; e^x
@@ -75,8 +76,10 @@ fpu_const SEGMENT PAGE READONLY
 
 fpu_const ENDS
 
-fpu_seg SEGMENT PAGE PUBLIC 'CODE'
 
+
+IF @WordSize EQ 4
+	fpu_seg SEGMENT PAGE PUBLIC 'CODE'
 	;---------------------------------------------
 	;             st(0) = st(1)^st(0)
 	;  - st(1) is poped
@@ -223,8 +226,15 @@ fpu_seg SEGMENT PAGE PUBLIC 'CODE'
 		ret
 
 	fpu_fit2pi endp	
+
+	fpu_seg ENDS
+ELSEIF @WordSize EQ 8
+.err <x64 support currently not implemented>
+ELSE
+	.err <only x86-32 and x86-64 supported>
+ENDIF
 	
-fpu_seg ENDS
+
 
 ELSE
 	EXTERNDEF fpu_const_r4_one		:REAL4
@@ -246,10 +256,15 @@ ELSE
 	EXTERNDEF fpu_const_r8_d2r		:REAL8
 	EXTERNDEF fpu_const_r4_d2r		:REAL4
 	
-	fpu_st1_pow_st0 proto stdcall
-	fpu_exp proto stdcall
-	fpu_root proto stdcall
-	fpu_fit2pi proto stdcall
+	IF @WordSize EQ 4
+		fpu_st1_pow_st0 proto stdcall
+		fpu_exp proto stdcall
+		fpu_root proto stdcall
+		fpu_fit2pi proto stdcall
+	ELSEIF @WordSize EQ 8
+	ELSE
+		.err <only x86-32 and x86-64 supported>
+	ENDIF
 ENDIF	
 FNCD_VERSION	EQU 1
 FNCD_NARGS		EQU 2
@@ -467,6 +482,11 @@ fslv_fnc_atan macro
 	fpatan
 endm
 default_fnc_dscptr <atan>,1,0
+
+fslv_fnc_atan2 macro
+	fpatan
+endm
+default_fnc_dscptr <atan2>,2,0
 
 fslv_fnc_asin macro
   	fst REAL4 ptr [esp-4]
