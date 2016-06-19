@@ -564,9 +564,9 @@ tmt_check_for_single_argument macro SlvPath,SubExpr
 			tmt_pos2 INSTR 1,tk_exp,<]>
 			tmt_res TEXTEQU <>
 			IF tmt_pos1
-				tmt_res CATSTR @SubStr(<%tk_exp>,1,%tmt_pos1-1)
-				IF tmt_pos2 LT @SizeStr(<%tk_exp>)
-					tmt_res CATSTR @SubStr(<%tk_exp>,%tmt_pos2+1,)
+				tmt_res SUBSTR tk_exp,1,tmt_pos1-1
+				IF tmt_pos2 NE 0 AND tmt_pos2 LT @SizeStr(<%tk_exp>)
+					tmt_res CATSTR tmt_res,@SubStr(<%tk_exp>,%tmt_pos2+1,)
 				ENDIF
 			ELSE
 				tmt_res CATSTR tk_exp,< >

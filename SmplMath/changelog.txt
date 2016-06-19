@@ -1,0 +1,2 @@
+05.08.2011: Version 1.0.1
+            bug fix: expressions in braces may parsed incorrectly
