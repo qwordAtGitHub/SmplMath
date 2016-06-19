@@ -83,6 +83,14 @@ EXTERNDEF sse2_ss_pi			:REAL4
 EXTERNDEF sse2_sd_mpi			:REAL8
 EXTERNDEF sse2_ss_mpi			:REAL4
 EXTERNDEF sse2_ExpD				:SSE2_EXPD
+EXTERNDEF sse2_log2sd_cmp1		:REAL8
+EXTERNDEF sse2_log2sd_cmp2		:REAL8
+EXTERNDEF sse2_log2sd_msk_1 	:REAL8
+EXTERNDEF sse2_log2sd_m1		:REAL8
+EXTERNDEF sse2_log2sd_msk_2 	:REAL8
+EXTERNDEF sse2_log2sd_128		:REAL8
+EXTERNDEF sse2_log2sd_P			:REAL8
+EXTERNDEF sse2_log2sd_tbl		:REAL8
 
 IF @WordSize EQ 4
 	fpu_st1_pow_st0 proto stdcall
@@ -418,6 +426,75 @@ end_lbl:
 endm
 default_fnc_dscptr2 <expd>,nArgs=1,nRegs=3,x64=-1,SSE2=-1,<realTypes=<8>>,IReg=-1,Signature=-1
 
+; |relative error| < 2.5E-15
+fslv_fnc_ireg_log2d macro arg0,free1,free2,free3,free_regs:VARARG
+LOCAL @valid,@1,@P,@end
+
+	IFE fslv_volatile_gprs AND FSVGPR_EAX
+		push eax
+	ENDIF
+	
+	xorpd free3,free3
+	comisd arg0,free3
+	ja @valid
+	  push 7f800000h
+	  cvtss2sd arg0,REAL4 ptr [esp]
+	  pop eax
+	  jmp @end
+	align 16
+@valid:
+	comisd arg0,sse2_log2sd_cmp1
+	jb @1
+	db 3eh ; DS prefix
+	comisd arg0,sse2_log2sd_cmp2
+	ja @1
+	db 3eh ; DS prefix
+	addsd arg0,sse2_log2sd_m1
+	jmp @P
+	
+@1:	
+	pextrw eax,arg0,3
+	shr eax,4
+	sub eax,1023
+	cvtsi2sd free3,eax
+	andpd arg0,XMMWORD ptr sse2_log2sd_msk_1
+	orpd arg0,XMMWORD ptr sse2_log2sd_msk_2
+	
+	mulsd arg0,sse2_log2sd_128
+	cvttsd2si eax,arg0
+	cvtsi2sd free1,eax
+	lea eax,[eax*8-128*8]
+	db 3eh ; DS prefix
+	lea eax,[eax+eax]
+    subsd arg0,free1
+    addsd free3,sse2_log2sd_tbl[eax]
+    mulsd arg0,sse2_log2sd_tbl[eax][8]
+@P:
+    mov eax,OFFSET sse2_log2sd_P
+	movsd free2,arg0
+	unpcklpd arg0,arg0
+	movapd free1,arg0
+	mulsd free2,free2
+	mulpd arg0,OWORD ptr [eax][0*16]
+	mulpd free1,OWORD ptr [eax][1*16]
+	addpd arg0,OWORD ptr [eax][2*16]
+	addpd free1,OWORD ptr [eax][3*16]
+	unpcklpd free2,free2
+	mulpd arg0,free2
+	mulsd free2,free2
+	addpd arg0,free1
+	movapd free1,arg0
+	unpckhpd free1,free1
+	mulsd arg0,free2
+	addsd arg0,free1
+	addsd arg0,free3
+@end:
+	IFE fslv_volatile_gprs AND FSVGPR_EAX
+		pop eax
+	ENDIF
+endm
+default_fnc_dscptr2 <log2d>,nArgs=1,nRegs=3,x64=0,SSE2=-1,<realTypes=<8>>,IReg=-1,Signature=-1
+
 fslv_fnc_ireg_rsqrtss macro arg0,free_regs:VARARG
 	rsqrtss arg0,arg0
 endm
@@ -627,9 +704,9 @@ endm
 default_fnc_dscptr2 <max>,nArgs=2,fpu=-1,x64=-1,SSE2=-1,IReg=-1
 
 ; fit2pi(x)
-; transform an multiple of 2*PI to u*2*PI, 
-; whereas 1 >= u >= 0 for positiv values and
-; 0 >= u >= -1 for negativ values.
+; transform multiple of 2*PI to u*2*PI, 
+; whereas 1 >= u >= 0 for positive values and
+; 0 >= u >= -1 for negative values.
 fslv_fnc_fit2pi macro
 	call fpu_fit2pi
 endm

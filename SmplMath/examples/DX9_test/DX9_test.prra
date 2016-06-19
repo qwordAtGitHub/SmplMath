@@ -3,7 +3,7 @@ Version=3000
 [Project]
 Assembler=jWasm
 Group=2,-1,0,1,DX9_test,-2,-1,1,Assembly,-3,-1,1,Include,-4,-1,1,Misc,-5,-1,1,Resource
-F1=-2,2,1,-10,-32,1616,853,287,DX9_test.asm
+F1=-2,2,1,-10,-32,1616,853,77,DX9_test.asm
 C1=0
 B1=
 M1=
@@ -17,6 +17,7 @@ B3=
 M3=
 Open=0,1
 Api=
+Path=C:\RadAsm3
 [Make]
 Make=0
 0=Window Release,'/v "$R"',"$R.res",'/c /coff /Cp "$C" ',"$C.obj",'/SUBSYSTEM:WINDOWS /RELEASE /VERSION:4.0 /OUT:$O $C $R',"$C.exe",'',

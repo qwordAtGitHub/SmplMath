@@ -16,11 +16,12 @@ IF @Version GE 800
 ENDIF
 
 include FncDrawCtrl.inc
+include FncDrawCtrlInternal.inc
 
 
 pwsz$ macro wsz:VARARG
-LOCAL pwsz?,txt,wszSize??
-	.data
+LOCAL txt
+	.const
 		WSTR txt,wsz,0
 	.code
 	mov eax,alloc(SIZEOF txt)
@@ -48,7 +49,7 @@ endm
 GdipGetClientRectF proto hWnd:HWND,pRectF:ptr RectF
 draw_axes proto graphics:PVOID,pAxesInfo:ptr AXES_INFO
 calc_metrics proto hWnd:HWND,pAxesInfo:ptr AXES_INFO
-plot proto graphics:PVOID,pen:PVOID,nPoints:DWORD,pAxesInfo: ptr AXES_INFO,pfnCallBack:PVOID
+plot proto graphics:PVOID,pen:PVOID,nPoints:DWORD,pAxesInfo: ptr AXES_INFO,pfnCallBack:PVOID,bVectorial:BOOL,userData:PVOID
 scale_axes proto pAxesInfo: ptr AXES_INFO,xMultipleOf:REAL8,yMultipleOf:REAL8,nMarksX:DWORD,nMarksY:DWORD
 ApproxEqual proto fValue1:REAL8,fValue2:REAL8,fRange:REAL8
 pix2mm proto x:DWORD,y:DWORD,pPointD: ptr PointD
@@ -153,7 +154,7 @@ IsValidFncHandle proc uses ebx pFncDrwCtrl:ptr FNCDRAW_CNTRL,hFnc:HFNC
 	
 	mov ebx,pFncDrwCtrl
 	
-	.if [ebx].FNCDRAW_CNTRL.nFunctions
+	.if ![ebx].FNCDRAW_CNTRL.nFunctions
 		xor eax,eax
 		ret		
 	.endif
@@ -163,13 +164,87 @@ IsValidFncHandle proc uses ebx pFncDrwCtrl:ptr FNCDRAW_CNTRL,hFnc:HFNC
 		.if edx == eax
 			ret
 		.endif
-		mov edx,[edx].FNC_DSCPTR.pNextDscptr
+		mov edx,[edx].FNC_DSCPTR_LL.pNextDscptr
 	.endw
 	
 	xor eax,eax	
 	ret
 	
 IsValidFncHandle endp
+
+
+; EBX = ptr FNCDRAW_CNTRL
+fdll_remove proc hFnc:HFNC
+	
+	.if [ebx].FNCDRAW_CNTRL.nFunctions > 1
+		mov edx,hFnc
+		.if [edx].FNC_DSCPTR_LL.pPrevDscptr && [edx].FNC_DSCPTR_LL.pNextDscptr
+			mov ecx,[edx].FNC_DSCPTR_LL.pPrevDscptr
+			mrm [ecx].FNC_DSCPTR_LL.pNextDscptr,[edx].FNC_DSCPTR_LL.pNextDscptr
+			mov ecx,[edx].FNC_DSCPTR_LL.pNextDscptr
+			mrm [ecx].FNC_DSCPTR_LL.pPrevDscptr,[edx].FNC_DSCPTR_LL.pPrevDscptr
+		.elseif [edx].FNC_DSCPTR_LL.pPrevDscptr
+			mov ecx,[edx].FNC_DSCPTR_LL.pPrevDscptr
+			mov [ecx].FNC_DSCPTR_LL.pNextDscptr,0
+		.else;if [edx].FNC_DSCPTR_LL.pNextDscptr
+			mov ecx,[edx].FNC_DSCPTR_LL.pNextDscptr
+			mov [ecx].FNC_DSCPTR_LL.pPrevDscptr,0
+			mov [ebx].FNCDRAW_CNTRL.pFncDscptr,ecx
+		.endif
+	.else
+		mov [ebx].FNCDRAW_CNTRL.pFncDscptr,0
+	.endif
+
+	sub [ebx].FNCDRAW_CNTRL.nFunctions,1
+	
+	ret
+	
+fdll_remove endp
+
+; EBX = ptr FNCDRAW_CNTRL
+fdll_insert proc hFncRef:HFNC, hFnc:HFNC, before:BOOL
+
+	mov edx,hFnc
+	.if [ebx].FNCDRAW_CNTRL.nFunctions
+		mov ecx,hFncRef
+		.if before
+			mov [edx].FNC_DSCPTR_LL.pNextDscptr,ecx
+			mrm [edx].FNC_DSCPTR_LL.pPrevDscptr,[ecx].FNC_DSCPTR_LL.pPrevDscptr
+			mov [ecx].FNC_DSCPTR_LL.pPrevDscptr,edx
+			.if eax
+				mov [eax].FNC_DSCPTR_LL.pNextDscptr,edx
+			.else
+				mov [ebx].FNCDRAW_CNTRL.pFncDscptr,edx
+			.endif
+		.else
+			mov [edx].FNC_DSCPTR_LL.pPrevDscptr,ecx
+			mrm [edx].FNC_DSCPTR_LL.pNextDscptr,[ecx].FNC_DSCPTR_LL.pNextDscptr
+			mov [ecx].FNC_DSCPTR_LL.pNextDscptr,edx
+			.if eax
+				mov [eax].FNC_DSCPTR_LL.pPrevDscptr,edx
+			.endif
+		.endif
+	.else
+		mov [ebx].FNCDRAW_CNTRL.pFncDscptr,edx
+	.endif
+	add [ebx].FNCDRAW_CNTRL.nFunctions,1
+
+	ret
+	
+fdll_insert endp
+
+; EBX = ptr FNCDRAW_CNTRL
+fdll_get_last proc
+	
+	mov edx,[ebx].FNCDRAW_CNTRL.pFncDscptr
+	mov eax,edx
+	.while edx
+		mov eax,edx
+		mov edx,[edx].FNC_DSCPTR_LL.pNextDscptr
+	.endw
+	
+	ret
+fdll_get_last endp
 
 fdcRedirectWmMouseWheel proc uses ebx hWnd:HWND,wParam:WPARAM,lParam:LPARAM
 LOCAL szClassName[256]:BYTE
@@ -260,10 +335,10 @@ fdc_OnDestroy proc uses ebx esi hWnd:HWND
 	.if [ebx].FNCDRAW_CNTRL.nFunctions
 		mov esi,[ebx].FNCDRAW_CNTRL.pFncDscptr
 		.repeat
-			.if [esi].FNC_DSCPTR.flg & ( PEN__CTRL_OWNS  or PEN__CTRL_DESTROY or PEN__CLONE)
-				invoke GdipDeletePen,[esi].FNC_DSCPTR.pen
+			.if [esi].FNC_DSCPTR_LL.flg & ( PEN__CTRL_OWNS  or PEN__CTRL_DESTROY or PEN__CLONE)
+				invoke GdipDeletePen,[esi].FNC_DSCPTR_LL.pen
 			.endif
-			push [esi].FNC_DSCPTR.pNextDscptr
+			push [esi].FNC_DSCPTR_LL.pNextDscptr
 			free esi
 			pop esi
 		.until !esi
@@ -376,6 +451,7 @@ fdc_set_label_info proc uses ebx esi edi pAxesInfo: ptr AXES_INFO,pLabelInfo:PVO
 	
 fdc_set_label_info endp
 
+
 WndProc proc uses ebx esi edi hWnd:HWND,uMsg:UINT,wParam:WPARAM,lParam:LPARAM
 LOCAL ps:PAINTSTRUCT
 LOCAL graphics:PVOID	
@@ -383,7 +459,6 @@ LOCAL hBkDC:HDC
 LOCAL rect:RECT
 LOCAL pixpincx:DWORD,pixpincy:DWORD
 LOCAL hdc:HDC
-LOCAL pointf:PointF
 LOCAL pointd:PointD
 LOCAL fdc_nmhdr:FDC_NMHDR
 LOCAL abs1:REAL8,abs2:REAL8
@@ -403,6 +478,23 @@ LOCAL fSlvTLS()
 		mov [ebx].FNCDRAW_CNTRL.pAxesInfo,rv(CopyAxesInfo,wParam)
 		mov [ebx].FNCDRAW_CNTRL.init,1
 		invoke InvalidateRect,hWnd,0,0
+		
+	AXES_INFO_GETSET labels.frame, 			FRAME			, 			,, new_metrics
+	AXES_INFO_GETSET labels.pwszFormatX, 	LBL_FORMATXW	, by_value
+	AXES_INFO_GETSET labels.pwszFormatY, 	LBL_FORMATYW	, by_value
+	AXES_INFO_GETSET labels.flgXlbl, 		LBL_YFLG		, by_value
+	AXES_INFO_GETSET labels.flgYlbl, 		LBL_YFLG		, by_value
+	AXES_INFO_GETSET labels.markSize, 		LBL_MARKSIZE	, by_value
+	AXES_INFO_GETSET labels.xMultipleOf, 	LBL_XMULTIPLEOF	, 			,, new_metrics
+	AXES_INFO_GETSET labels.yMultipleOf, 	LBL_YMULTIPLEOF	, 			,, new_metrics
+	AXES_INFO_GETSET labels.nxMarks, 		LBL_NXMARKS		, 			,, new_metrics
+	AXES_INFO_GETSET labels.nyMarks, 		LBL_NYMARKS		, 			,, new_metrics
+	AXES_INFO_GETSET labels.xLblOffX, 		LBL_XLBLOFFX	, by_value	,, new_metrics
+	AXES_INFO_GETSET labels.xLblOffY, 		LBL_XLBLOFFY	, by_value	,, new_metrics
+	AXES_INFO_GETSET labels.yLblOffX, 		LBL_YLBLOFFX	, by_value	,, new_metrics
+	AXES_INFO_GETSET labels.yLblOffY, 		LBL_YLBLOFFY	, by_value	,, new_metrics
+	AXES_INFO_GETSET view, 					CURR_VIEW		, 			,, new_metrics
+		
 	.elseif uMsg == FDCM_GET_STYLE
 		mov ebx,rv(GetWindowLong,hWnd,0)
 		mov eax,[ebx].FNCDRAW_CNTRL.dwStyle
@@ -414,19 +506,6 @@ LOCAL fSlvTLS()
 			ret
 		.endif
 		m2m [ebx].FNCDRAW_CNTRL.dwStyle,wParam
-		;invoke InvalidateRect,hWnd,0,TRUE
-		mov eax,1
-		ret
-	.elseif uMsg == FDCM_SET_CURR_VIEW
-		mov ebx,rv(GetWindowLong,hWnd,0)
-		mov ebx,[ebx].FNCDRAW_CNTRL.pAxesInfo
-		mov esi,wParam
-		d2d [ebx].AXES_INFO.view.xMax,[esi].CURR_VIEW.xMax
-		d2d [ebx].AXES_INFO.view.xMin,[esi].CURR_VIEW.xMin
-		d2d [ebx].AXES_INFO.view.yMax,[esi].CURR_VIEW.yMax
-		d2d [ebx].AXES_INFO.view.yMin,[esi].CURR_VIEW.yMin
-		invoke calc_metrics,hWnd,ebx
-		invoke scale_axes,ebx,[ebx].AXES_INFO.labels.xMultipleOf,[ebx].AXES_INFO.labels.yMultipleOf,[ebx].AXES_INFO.labels.nxMarks,[ebx].AXES_INFO.labels.nyMarks
 		invoke InvalidateRect,hWnd,0,TRUE
 		mov eax,1
 		ret
@@ -440,65 +519,36 @@ LOCAL fSlvTLS()
 		invoke Unit2ClientPoint,wParam,rv(GetWindowLong,hWnd,0),lParam
 		mov eax,1
 		ret
-	.elseif uMsg == FDCM_GET_CURR_VIEW
-		mov ebx,rv(GetWindowLong,hWnd,0)
-		mov ebx,[ebx].FNCDRAW_CNTRL.pAxesInfo
-		mov esi,wParam
-		d2d [esi].CURR_VIEW.xMax,[ebx].AXES_INFO.view.xMax
-		d2d [esi].CURR_VIEW.xMin,[ebx].AXES_INFO.view.xMin
-		d2d [esi].CURR_VIEW.yMax,[ebx].AXES_INFO.view.yMax
-		d2d [esi].CURR_VIEW.yMin,[ebx].AXES_INFO.view.yMin
-		mov eax,1
-		ret
 	.elseif uMsg == FDCM_SET_FNC_CB
 		mov ebx,rv(GetWindowLong,hWnd,0)
 		.if rv(IsValidFncHandle,ebx,wParam)
-			mov eax,[ebx].FNC_DSCPTR.pCallBack
-			m2m [ebx].FNC_DSCPTR.pCallBack,lParam
+			mov edx,wParam
+			m2m [edx].FNC_DSCPTR_LL.pCallBack,lParam
 			invoke InvalidateRect,hWnd,0,TRUE
 			mov eax,1
-		.else
-			xor eax,eax
 		.endif
 		ret
 	.elseif uMsg == FDCM_SET_FNC_NPOINTS
 		mov ebx,rv(GetWindowLong,hWnd,0)
 		.if rv(IsValidFncHandle,ebx,wParam) && lParam >= 2
-			mov eax,[ebx].FNC_DSCPTR.nPoints
-			m2m [ebx].FNC_DSCPTR.nPoints,lParam
+			mov edx,wParam
+			m2m [edx].FNC_DSCPTR_LL.nPoints,lParam
 			invoke InvalidateRect,hWnd,0,TRUE
 			mov eax,1
-		.else
-			xor eax,eax
 		.endif
 		ret
 	.elseif uMsg == FDCM_DEL_FNC
 		mov ebx,rv(GetWindowLong,hWnd,0)
 		.if rv(IsValidFncHandle,ebx,wParam)
 			mov edx,wParam
-			.if [edx].FNC_DSCPTR.flg & ( PEN__CTRL_OWNS  or PEN__CTRL_DESTROY or PEN__CLONE)
-				invoke GdipDeletePen,[edx].FNC_DSCPTR.pen
+			.if [edx].FNC_DSCPTR_LL.flg & ( PEN__CTRL_OWNS  or PEN__CTRL_DESTROY or PEN__CLONE)
+				invoke GdipDeletePen,[edx].FNC_DSCPTR_LL.pen
 				mov edx,wParam
 			.endif
-			.if [edx].FNC_DSCPTR.pPrevDscptr && [edx].FNC_DSCPTR.pNextDscptr
-				mov eax,[edx].FNC_DSCPTR.pPrevDscptr
-				m2m [eax].FNC_DSCPTR.pNextDscptr,[edx].FNC_DSCPTR.pNextDscptr
-				mov eax,[edx].FNC_DSCPTR.pNextDscptr
-				m2m [eax].FNC_DSCPTR.pPrevDscptr,[edx].FNC_DSCPTR.pPrevDscptr
-			.elseif [edx].FNC_DSCPTR.pPrevDscptr
-				mov eax,[edx].FNC_DSCPTR.pPrevDscptr
-				mov [eax].FNC_DSCPTR.pNextDscptr,0
-			.else;if [edx].FNC_DSCPTR.pNextDscptr
-				mov eax,[edx].FNC_DSCPTR.pNextDscptr
-				mov [eax].FNC_DSCPTR.pPrevDscptr,0
-				mov [ebx].FNCDRAW_CNTRL.pFncDscptr,eax
-			.endif
+			fn fdll_remove,edx
 			free wParam
-			dec [ebx].FNCDRAW_CNTRL.nFunctions
 			invoke InvalidateRect,hWnd,0,TRUE
 			mov eax,1
-		.else
-			xor eax,eax
 		.endif
 		ret
 	.elseif uMsg == FDCM_GET_FNC_DSCRPTR
@@ -506,16 +556,17 @@ LOCAL fSlvTLS()
 		.if rv(IsValidFncHandle,ebx,wParam)
 			mov edx,lParam
 			mov eax,wParam
-			m2m [edx].FNC_DSCPTR.flg,[eax].FNC_DSCPTR.flg
-			m2m [edx].FNC_DSCPTR.nPoints,[eax].FNC_DSCPTR.nPoints
-			m2m [edx].FNC_DSCPTR.pCallBack,[eax].FNC_DSCPTR.pCallBack
-			m2m [edx].FNC_DSCPTR.pen,[eax].FNC_DSCPTR.pen
-			m2m [edx].FNC_DSCPTR._width,[eax].FNC_DSCPTR._width
-			mov [edx].FNC_DSCPTR.pNextDscptr,0
-			mov [edx].FNC_DSCPTR.pPrevDscptr,0
+			m2m [edx].FNC_DSCPTR.flg,[eax].FNC_DSCPTR_LL.flg
+			m2m [edx].FNC_DSCPTR.nPoints,[eax].FNC_DSCPTR_LL.nPoints
+			m2m [edx].FNC_DSCPTR.pCallBack,[eax].FNC_DSCPTR_LL.pCallBack
+			m2m [edx].FNC_DSCPTR.pen,[eax].FNC_DSCPTR_LL.pen
+			m2m [edx].FNC_DSCPTR._width,[eax].FNC_DSCPTR_LL._width
+			m2m [edx].FNC_DSCPTR.userData,[eax].FNC_DSCPTR_LL.userData
+			.if [eax].FNC_DSCPTR_LL.flg & _VALUE_ARGB_
+				invoke GdipGetPenColor,[edx].FNC_DSCPTR.pen,ADDR [edx].FNC_DSCPTR.pen
+			.endif
+			
 			mov eax,1
-		.else
-			xor eax,eax
 		.endif
 		ret
 	.elseif uMsg == FDCM_SET_FNC_PEN
@@ -523,24 +574,135 @@ LOCAL fSlvTLS()
 		.if rv(IsValidFncHandle,ebx,wParam)
 			mov esi,wParam
 			mov edi,lParam
-			.if [esi].FNC_DSCPTR.flg & ( PEN__CTRL_OWNS  or PEN__CTRL_DESTROY or PEN__CLONE)
-				invoke GdipDeletePen,[esi].FNC_DSCPTR.pen
+			.if [esi].FNC_DSCPTR_LL.flg & ( PEN__CTRL_OWNS  or PEN__CTRL_DESTROY or PEN__CLONE)
+				invoke GdipDeletePen,[esi].FNC_DSCPTR_LL.pen
 			.endif
-			m2m [esi].FNC_DSCPTR.pen,[edi].FNC_DSCPTR.pen
-			m2m [esi].FNC_DSCPTR.flg,[edi].FNC_DSCPTR.flg
-			m2m [esi].FNC_DSCPTR._width,[edi].FNC_DSCPTR._width
+			m2m [esi].FNC_DSCPTR_LL.pen,[edi].FNC_DSCPTR_LL.pen
+			m2m [esi].FNC_DSCPTR_LL.flg,[edi].FNC_DSCPTR_LL.flg
+			m2m [esi].FNC_DSCPTR_LL._width,[edi].FNC_DSCPTR_LL._width
 			
-			.if [edi].FNC_DSCPTR.flg&PEN__CLONE
-				invoke GdipClonePen,[edi].FNC_DSCPTR.pen,ADDR [esi].FNC_DSCPTR.pen
-			.elseif [edi].FNC_DSCPTR.flg&_VALUE_ARGB_ && [edi].FNC_DSCPTR.flg&PEN__CTRL_OWNS
-				invoke GdipCreatePen1,[edi].FNC_DSCPTR.pen,[edi].FNC_DSCPTR._width,UnitWorld,ADDR [esi].FNC_DSCPTR.pen
+			.if [edi].FNC_DSCPTR_LL.flg&PEN__CLONE
+				invoke GdipClonePen,[edi].FNC_DSCPTR_LL.pen,ADDR [esi].FNC_DSCPTR_LL.pen
+			.elseif [edi].FNC_DSCPTR_LL.flg&_VALUE_ARGB_ && [edi].FNC_DSCPTR_LL.flg&PEN__CTRL_OWNS
+				invoke GdipCreatePen1,[edi].FNC_DSCPTR_LL.pen,[edi].FNC_DSCPTR_LL._width,UnitWorld,ADDR [esi].FNC_DSCPTR_LL.pen
 			.endif
 			invoke InvalidateRect,hWnd,0,TRUE
 			mov eax,1
-		.else
-			xor eax,eax
 		.endif
 		ret
+		
+		
+	.elseif uMsg == FDCM_GET_FNC_USER_DATA
+		mov ebx,rv(GetWindowLong,hWnd,0)
+		.if rv(IsValidFncHandle,ebx,wParam)
+			mov edx,wParam
+			mov eax,[edx].FNC_DSCPTR_LL.userData
+		.endif
+		ret
+	.elseif uMsg == FDCM_SET_FNC_USER_DATA
+		mov ebx,rv(GetWindowLong,hWnd,0)
+		.if rv(IsValidFncHandle,ebx,wParam)
+			mov edx,wParam
+			mrm [edx].FNC_DSCPTR_LL.userData,lParam
+			mov eax,1
+		.endif
+		ret
+	.elseif uMsg == FDCM_GET_FNC_FLG
+		mov ebx,rv(GetWindowLong,hWnd,0)
+		.if rv(IsValidFncHandle,ebx,wParam)
+			mov edx,wParam
+			mov eax,[edx].FNC_DSCPTR_LL.flg
+		.endif
+		ret
+	.elseif uMsg == FDCM_SET_FNC_FLG
+		mov ebx,rv(GetWindowLong,hWnd,0)
+		.if rv(IsValidFncHandle,ebx,wParam)
+			xor eax,eax
+			mov ecx,lParam
+			.if !(ecx & (NOT FNCFLG_VALID_)) 
+				mov edx,wParam
+				mov [edx].FNC_DSCPTR_LL.flg,ecx
+				mov eax,1
+			.endif
+		.endif
+		ret
+	.elseif uMsg == FDCM_IS_VALID_HFNC
+		mov ebx,rv(GetWindowLong,hWnd,0)
+		.if rv(IsValidFncHandle,ebx,wParam)
+			mov eax,1
+		.endif 
+		ret
+	.elseif uMsg == FDCM_GET_FNC_CB
+		mov ebx,rv(GetWindowLong,hWnd,0)
+		.if rv(IsValidFncHandle,ebx,wParam)
+			mov edx,wParam
+			mov eax,[edx].FNC_DSCPTR_LL.pCallBack
+		.endif
+		ret
+	.elseif uMsg == FDCM_GET_N_FUNCTIONS
+		mov ebx,rv(GetWindowLong,hWnd,0)
+		mov eax,[ebx].FNCDRAW_CNTRL.nFunctions
+		ret
+	.elseif uMsg == FDCM_GET_HFNC_LIST
+		mov ebx,rv(GetWindowLong,hWnd,0)
+		mov ecx,[ebx].FNCDRAW_CNTRL.nFunctions
+		xor eax,eax
+		mov edx,wParam
+		.if edx
+			mov DWORD ptr [edx],ecx
+			lea ecx,[ecx*SIZEOF HFNC]
+			.if ecx
+				mov edi,alloc(ecx)
+				.if edi
+					mov esi,[ebx].FNCDRAW_CNTRL.pFncDscptr
+					xor ecx,ecx
+					.while esi
+						mov HFNC ptr [edi+ecx*HFNC],esi
+						mov esi,[esi].FNC_DSCPTR_LL.pNextDscptr
+						add ecx,HFNC
+					.endw
+					mov eax,edi
+				.else
+					xor eax,eax
+				.endif
+			.endif 
+		.endif
+		ret
+	.elseif uMsg == FDCM_MOV_FNC_UP
+		mov ebx,rv(GetWindowLong,hWnd,0)
+		.if rv(IsValidFncHandle,ebx,wParam)
+			mov esi,wParam
+			mov edi,[esi].FNC_DSCPTR_LL.pNextDscptr
+			.if edi
+				fn fdll_remove,esi
+				.if lParam
+					fnx edi = fdll_get_last
+				.endif
+				fn fdll_insert,edi,esi,FALSE
+				mov eax,1
+			.else
+				xor eax,eax
+			.endif
+		.endif
+		ret
+	.elseif uMsg == FDCM_MOV_FNC_DOWN
+		mov ebx,rv(GetWindowLong,hWnd,0)
+		.if rv(IsValidFncHandle,ebx,wParam)
+			mov esi,wParam
+			mov edi,[esi].FNC_DSCPTR_LL.pPrevDscptr
+			.if edi
+				fn fdll_remove,esi
+				.if lParam
+					mov edi,[ebx].FNCDRAW_CNTRL.pFncDscptr
+				.endif
+				fn fdll_insert,edi,esi,TRUE
+				mov eax,1
+			.else
+				xor eax,eax
+			.endif
+		.endif
+		ret
+		
 	.elseif uMsg == FDCM_SET_LABEL_INFOA || uMsg == FDCM_SET_LABEL_INFOW
 		mov ebx,rv(GetWindowLong,hWnd,0)
 		invoke fdc_set_label_info,[ebx].FNCDRAW_CNTRL.pAxesInfo,wParam,uMsg
@@ -559,24 +721,24 @@ LOCAL fSlvTLS()
 		mov esi,wParam
 		assume esi: ptr FNC_DSCPTR
 		mov ebx,rv(GetWindowLong,hWnd,0)
-		.if esi && [esi].nPoints && [esi].pCallBack
-			mov edi,alloc(SIZEOF FNC_DSCPTR)
-			assume edi: ptr FNC_DSCPTR
+		.if esi && [esi].nPoints && [esi].pCallBack && !([esi].flg & (NOT FNCFLG_VALID_))
+			mov edi,alloc(SIZEOF FNC_DSCPTR_LL)
+			assume edi: ptr FNC_DSCPTR_LL
 			.if [ebx].FNCDRAW_CNTRL.nFunctions
 				mov edx,[ebx].FNCDRAW_CNTRL.pFncDscptr
 				.while 1
-					mov eax,[edx].FNC_DSCPTR.pNextDscptr
+					mov eax,[edx].FNC_DSCPTR_LL.pNextDscptr
 					.break .if !eax 
 					mov edx,eax
 				.endw
-				mov [edx].FNC_DSCPTR.pNextDscptr,edi
+				mov [edx].FNC_DSCPTR_LL.pNextDscptr,edi
 				mov [edi].pPrevDscptr,edx
 				inc [ebx].FNCDRAW_CNTRL.nFunctions
 			.else
 				mov [ebx].FNCDRAW_CNTRL.pFncDscptr,edi
 				mov [ebx].FNCDRAW_CNTRL.nFunctions,1
 			.endif
-			.if ![esi].flg&PEN__VALID_
+			.if ![esi].flg&PEN__VALID_				; one of the PEN-flags must be set
 				mov [edi].flg,PEN__DEFAULT
 			.else
 				m2m [edi].flg,[esi].flg
@@ -584,6 +746,8 @@ LOCAL fSlvTLS()
 			m2m [edi].nPoints,[esi].nPoints
 			m2m [edi].pCallBack,[esi].pCallBack
 			m2m [edi].pen,[esi].pen
+			m2m [edi]._width,[esi]._width
+			m2m [edi].userData,[esi].userData
 			
 			.if [esi].flg&PEN__CLONE
 				invoke GdipClonePen,[esi].pen,ADDR [edi].pen
@@ -624,10 +788,12 @@ LOCAL fSlvTLS()
 			
 			push ebx
 			mov ebx,[esi].pFncDscptr
-			assume ebx: ptr FNC_DSCPTR
+			assume ebx: ptr FNC_DSCPTR_LL
 			xor edi,edi
 			.while edi < [esi].nFunctions && ebx
-				invoke plot,graphics,[ebx].pen,[ebx].nPoints,[esi].pAxesInfo,[ebx].pCallBack
+				mov edx,[ebx].flg
+				and edx,FNCFLG_VECTORIAL
+				invoke plot,graphics,[ebx].pen,[ebx].nPoints,[esi].pAxesInfo,[ebx].pCallBack,edx,[ebx].userData
 				mov ebx,[ebx].pNextDscptr
 				inc edi
 			.endw
@@ -1015,7 +1181,6 @@ calc_metrics endp
 scale_axes proc uses ebx pAxesInfo: ptr AXES_INFO,xMultipleOf:REAL8,yMultipleOf:REAL8,nMarksX:DWORD,nMarksY:DWORD
 LOCAL xmd:REAL8
 LOCAL ymd:REAL8
-LOCAL fSlvTLS()
 
 	mov ebx,pAxesInfo
 	assume ebx: ptr AXES_INFO
@@ -1046,7 +1211,7 @@ LOCAL fSlvTLS()
 scale_axes endp
 
 align 16
-plot proc uses ebx esi edi graphics:PVOID,pen:PVOID,nPoints:DWORD,pAxesInfo: ptr AXES_INFO,pfnCallBack:PVOID
+plot proc uses ebx esi edi graphics:PVOID,pen:PVOID,nPoints:DWORD,pAxesInfo: ptr AXES_INFO,pfnCallBack:PVOID,bVectorial:BOOL,userData:PVOID
 LOCAL pitch:REAL8
 LOCAL x:REAL8,y:REAL8
 LOCAL dy:REAL8
@@ -1076,25 +1241,59 @@ LOCAL fSlvTLS()
 	mov edi,alloc(edx)
 	assume edi: ptr PointF
 	xor esi,esi
-	.while esi < nPoints
-		fSlv [edi+esi*SIZEOF PointF].x = [ebx].metrics.xOrgin + x*[ebx].metrics.mmpux
+	.if !bVectorial
+		.while esi < nPoints
+			fSlv [edi+esi*SIZEOF PointF].x = [ebx].metrics.xOrgin + x*[ebx].metrics.mmpux
+			
+			mov edx,pfnCallBack
+			assume edx: ptr CB_FNC_VALUE
+			invoke edx,x,ADDR y,userData
+			.if fLT(y,@fSlv8([ebx].view.yMin - dy*1.5)) 
+				fSlv [edi+esi*SIZEOF PointF].y = [ebx].metrics.yOrgin - ([ebx].view.yMin - dy*1.5) * [ebx].metrics.mmpuy
+			.else
+				.if fGT(y,@fSlv8([ebx].view.yMax + dy*1.5))
+					fSlv [edi+esi*SIZEOF PointF].y = [ebx].metrics.yOrgin - ( [ebx].view.yMax + dy*1.5) * [ebx].metrics.mmpuy
+				.else
+					fSlv [edi+esi*SIZEOF PointF].y = [ebx].metrics.yOrgin - y * [ebx].metrics.mmpuy
+				.endif
+			.endif
+	
+			fSlv x = x + pitch
+			inc esi
+		.endw
+		
+	.else
+		
+		.while esi < nPoints
+			fSlv REAL8 ptr [edi+esi*SIZEOF REAL8] = x
+			fSlv x = x + pitch
+			add esi,1
+		.endw
 		
 		mov edx,pfnCallBack
-		assume edx: ptr CB_FNC_VALUE
-		invoke edx,x,ADDR y
-		.if fLT(y,@fSlv8([ebx].view.yMin - dy*1.5)) 
-			fSlv [edi+esi*SIZEOF PointF].y = [ebx].metrics.yOrgin - ([ebx].view.yMin - dy*1.5) * [ebx].metrics.mmpuy
-		.else
-			.if fGT(y,@fSlv8([ebx].view.yMax + dy*1.5))
-				fSlv [edi+esi*SIZEOF PointF].y = [ebx].metrics.yOrgin - ( [ebx].view.yMax + dy*1.5) * [ebx].metrics.mmpuy
+		assume edx: ptr CB_FNC_VALUES
+		invoke edx,edi,nPoints,userData
+		
+		d2d x,[ebx].view.xMin
+		xor esi,esi
+		.while esi < nPoints
+			fSlv y = REAL8 ptr [edi+esi*SIZEOF REAL8]
+			
+			fSlv [edi+esi*SIZEOF PointF].x = [ebx].metrics.xOrgin + x*[ebx].metrics.mmpux
+			
+			.if fLT(y,@fSlv8([ebx].view.yMin - dy*1.5)) 
+				fSlv [edi+esi*SIZEOF PointF].y = [ebx].metrics.yOrgin - ([ebx].view.yMin - dy*1.5) * [ebx].metrics.mmpuy
 			.else
-				fSlv [edi+esi*SIZEOF PointF].y = [ebx].metrics.yOrgin - y * [ebx].metrics.mmpuy
+				.if fGT(y,@fSlv8([ebx].view.yMax + dy*1.5))
+					fSlv [edi+esi*SIZEOF PointF].y = [ebx].metrics.yOrgin - ( [ebx].view.yMax + dy*1.5) * [ebx].metrics.mmpuy
+				.else
+					fSlv [edi+esi*SIZEOF PointF].y = [ebx].metrics.yOrgin - y * [ebx].metrics.mmpuy
+				.endif
 			.endif
-		.endif
-
-		fSlv x = x + pitch
-		inc esi
-	.endw
+			fSlv x = x + pitch
+			add esi,1
+		.endw
+	.endif
 	
 	invoke GdipDrawLines,graphics,pen,edi,nPoints
 	
@@ -1153,7 +1352,7 @@ LOCAL fSlvTLS()
 			mov qdrnt,1
 		.else
 			jmp @B
-	@@:	.endif
+		.endif
 		
 		.if [ebx].labels.flgXlbl&ALP_USE_X_OFFSETS
 			fSlv rectf.x = rectf.x + [ebx].labels.xLblOffX
@@ -1171,7 +1370,7 @@ LOCAL fSlvTLS()
 			mov qdrnt,1
 		.else
 			jmp @B	
-	@@:	.endif
+		.endif
 		
 		.if [ebx].labels.flgYlbl&ALP_USE_Y_OFFSETS
 			fSlv rectf.x = rectf.x + [ebx].labels.yLblOffX
@@ -1208,16 +1407,13 @@ draw_label endp
 
 
 draw_axes proc uses ebx graphics:PVOID,pAxesInfo: ptr AXES_INFO
-LOCAL mmpux:REAL8,mmpuy:REAL8
-LOCAL xCenter:REAL8,yCenter:REAL8
 LOCAL xPos:REAL4,xVal:REAL8
 LOCAL yPos:REAL4,yVal:REAL8
-LOCAL matrix:REAL4
+LOCAL matrix:PVOID
 LOCAL fontFam:PVOID
 LOCAL strFormat:PVOID
 LOCAL path:PVOID
 LOCAL rectf:RectF
-LOCAL wsz[64]:WORD
 LOCAL fSlvTLS()
 	
 	mov ebx,pAxesInfo

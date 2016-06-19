@@ -243,7 +243,7 @@ ll_fSlv macro SlvPath,SubExpr,bFunction:=<0>,retval_int_type:=<0>,retval_real_ty
 					ENDIF
 					lfs_skip = 3
 				ELSEIF (lfs_flg3 AND TMT_OPRT) NE 0
-					%echo debug: push,<+-*/^>,? - unknowen situation - report to author
+					%echo debug: push,<+-*/^>,? - unknown situation - report to author
 				ELSEIF lfs_flg3 AND TMT_POP
 					;; push,pop
 					;; hold st(0)
@@ -253,7 +253,7 @@ ll_fSlv macro SlvPath,SubExpr,bFunction:=<0>,retval_int_type:=<0>,retval_real_ty
 					lfs_stack_cntr = lfs_stack_cntr + 1
 				ENDIF			
 			ELSEIF lfs_flg2 AND TMT_POP
-				%echo debug: pop - unknowen situation - report to author			
+				%echo debug: pop - unknown situation - report to author			
 			ELSEIF lfs_flg2 AND TMT_STO
 				lfs_idn_23 = llfs_is_idn(<%lfs_txt2>,<%lfs_txt3>)
 				lfs_idn_24 = llfs_is_idn(<%lfs_txt2>,<%lfs_txt4>)
@@ -359,7 +359,7 @@ ll_fSlv macro SlvPath,SubExpr,bFunction:=<0>,retval_int_type:=<0>,retval_real_ty
 			ELSEIF lfs_flg2 AND TMT_NEG
 				FSBE_PROC %FSBE_NEG
 			ELSE
-				fslv_glb_error_msg TEXTEQU <[#CG2] unknowen>
+				fslv_glb_error_msg TEXTEQU <[#CG2] unknown>
 				fslv_glb_error = 1
 			ENDIF
 		ENDIF
@@ -760,12 +760,8 @@ endm
 fslv_sto_rec0_oprt_rec0 macro
 	fssror_done = 1
 	fssror_op = @MatchStrI(%lfs_txt4,0,<+>,<->,<*>,</>,<^>)
-	IF (fssror_op EQ 1 OR fssror_op EQ 4) AND ((lfs_flg3 AND TMT_NEG) EQ (lfs_flg5 AND TMT_NEG))
-		IF fssror_op EQ 1 
-			fslv_glb_error_msg TEXTEQU <[#CG25] unnecessary subtraction of bracket enclosed expression: will always evaluate to zero: +-()-+()>
-		ELSE
-			fslv_glb_error_msg TEXTEQU <[#CG26] unnecessary division of bracket enclosed expression: will always evaluate to one: +-()/+-()>
-		ENDIF
+	IF fssror_op EQ 4 AND ((lfs_flg3 AND TMT_NEG) EQ (lfs_flg5 AND TMT_NEG))
+		fslv_glb_error_msg TEXTEQU <[#CG26] unnecessary division of bracket enclosed expression: will always evaluate to +1 : +-()/+-()>
 		fslv_glb_error = 1
 	ELSEIF fssror_op EQ 4 AND ((lfs_flg3 AND TMT_NEG) NE (lfs_flg5 AND TMT_NEG))
 		fslv_glb_error_msg TEXTEQU <[#CG27] unnecessary division of bracket enclosed expression: will always evaluate to -1 : +-()/-+()>

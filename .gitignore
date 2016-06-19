@@ -11,3 +11,5 @@
 !*.prra
 !*.txt
 !*.exp
+!*.docx
+!*.png

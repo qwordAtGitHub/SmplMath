@@ -298,9 +298,9 @@ endm
 
 ;-----------------------------------------------------------------------------------------------------------;
 ;Name:          @ScanForFlt(pos,txt,Chr) - scan for float                                                   ;
-;Desription:    scans in given string for a floating point or integer value. The integer value can          ;
+;Description:   scans in given string for a floating point or integer value. The integer value can          ;
 ;               be written in hexadecimal or decimal notation.                                              ;
-;               There is no size-checking, only syntax (masm-specific)                                      ;
+;               There is no size-checking, only syntax (MASM-specific)                                      ;
 ;               Number format:   1. [+-]{0-9}[Tt]                   e.g.: -12345     , +12345t              ;
 ;                                2. [+-]{0-9}[0-9a-fA-F]{Hh}        e.g.: +0ab3fh    , 0FFFFFFFFh           ;
 ;                                3. [+-]{0-9}{.}[0-9]               e.g.: -999.99    , 12.0  , 1.           ;
@@ -310,23 +310,23 @@ endm
 ;                                   leading blanks are ignored (space/tab)                                  ;
 ;               The size for (5.) is restricted by the target type: 8 digits for REAL4, 16 for REAL8 and    ;
 ;               20 for REAL10. One more leading zero is allowed and required if the numbers begins          ;
-;               with A-F or has leading zeros. For eaxample the REAL4 0x0123 must be written as:            ;
-;               000000123r (9 digits). Furthermore, the numeric string may be modefied so that it           ;
-;               has allways a leading zero and the possible negativ sign is moved into the hex-encoding     ;
-;               ( because MASM do not allow signs).                                                         ;
+;               with A-F or has leading zeros. For example the REAL4 0x0123 must be written as:             ;
+;               000000123r (9 digits). Furthermore, the numeric string may be modified so that it           ;
+;               has always a leading zero and the possible negative sign is moved into the hex-encoding     ;
+;               (because MASM do not allow signs).                                                          ;
 ;                                                                                                           ;
 ;                                                                                                           ;
 ; Parameter:                                                                                                ;
 ;       pos:    start position in given expression                                                          ;
 ;       txt:    expression to scan                                                                          ;
 ;       Chr:    [optional] a string containing all characters that can follow a numeric expression.         ;
-;               This test is applies to the character directly following the numeric expression (one char.  ;
+;               This test applies to the character directly following the numeric expression (one char.     ;
 ;               is tested)                                                                                  ;
-;               If you specific "default" then for the follow char. is tested:                              ;
+;               If you specify "default" then for the follow char. is tested:                               ;
 ;                                         space,tab,+,-,*,/,),","                                           ;
-;               An other key word is "blank", which cause to test for space and tab.                        ;
+;               Another key word is "blank", which cause to test for space and tab.                         ;
 ;               The key word "blanks" let the macro test all(!) remaining characters in the string          ;
-;               If this parameter is blank,the macro doesn't care the char.                                 ;
+;               If this parameter is blank, the macro doesn't care the char.                                ;
 ;               following a valid numeric expression, even if this invalidate it.                           ;
 ;               (see Example 6,7,8)                                                                         ;
 ;                                                                                                           ;
@@ -360,7 +360,7 @@ endm
 ;   sff_pos:            points to next char. following numeric string (this could be out of string-range)   ;
 ;   sff_num_pos:        points to begin of num (in txt)                                                     ;
 ;                                                                                                           ;
-;   The following textequ's depends on sff_flag and/or the type of num:                                     ;
+;   The following TEXTEQUs depends on sff_flag and/or the type of num:                                      ;
 ;    +------------------+------------------+-----+------------------------+-------------------------+       ;
 ;    |      name        |      flag        |type |      description       |  characters             |       ;
 ;    +------------------+------------------+-----+------------------------+-------------------------+       ;
@@ -602,6 +602,9 @@ endm
 		sff_type = 1
 		IF (sff_size2 MOD 2) EQ 0
 			sff_hex_digits CATSTR <0>,sff_hex_digits
+	%	ELSEIFDIF <0>,<@SubStr(%sff_hex_digits,1,1)>
+			sff_type = 0
+			EXITM <0>
 		ENDIF
 		IF (sff_size2 AND -2) EQ 8
 			sff_flag = sff_flag or SFF_HEX_REAL4

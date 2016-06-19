@@ -54,6 +54,15 @@ EXTERNDEF sse2_ss_pi			:REAL4
 EXTERNDEF sse2_sd_mpi			:REAL8
 EXTERNDEF sse2_ss_mpi			:REAL4
 EXTERNDEF sse2_ExpD				:SSE2_EXPD
+EXTERNDEF sse2_log2sd_cmp1		:REAL8
+EXTERNDEF sse2_log2sd_cmp2		:REAL8
+EXTERNDEF sse2_log2sd_msk_1 	:REAL8
+EXTERNDEF sse2_log2sd_m1		:REAL8
+EXTERNDEF sse2_log2sd_msk_2 	:REAL8
+EXTERNDEF sse2_log2sd_128		:REAL8
+EXTERNDEF sse2_log2sd_P			:REAL8
+EXTERNDEF sse2_log2sd_tbl		:REAL8
+
 
 fpu_st1_pow_st0 proto stdcall
 fpu_exp proto stdcall

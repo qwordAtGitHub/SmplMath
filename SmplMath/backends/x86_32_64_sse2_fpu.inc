@@ -442,7 +442,7 @@ endm
 
 ; type: function
 ; tkn is a real or integer constant.
-; If there is an specail operation/optimization for tkn as rvalue, the function creates the
+; If there is an special operation/optimization for tkn as rvalue, the function creates the
 ; corresponding code and return a none-zero value.
 ; If the constant and/or operator should be replaced, set the equate fsberor_new_params to a none zero value.
 ; The new operator must placed in text macro fsberor_new_op; the constant in fsberor_new_const. In this case, the macro must return zero.
