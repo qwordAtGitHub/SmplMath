@@ -497,6 +497,7 @@ fslv_fnc_asin macro
   	fld1
   	fsubrp st(1),st
   	fdivp st(1),st
+  	fabs ; 25022012
   	fsqrt
   	fld1
   	fpatan
@@ -514,6 +515,7 @@ fslv_fnc_acos macro
   	fld1
   	fsubrp st(1),st
   	fdivp st(1),st
+  	fabs ; 25022012
   	fsqrt
   	fld1
   	fpatan

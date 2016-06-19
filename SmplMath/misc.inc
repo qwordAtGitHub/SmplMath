@@ -513,12 +513,16 @@ endm
 ; list/table macros
 ;
 ;------------------------------
-lst_create macro lstName:req,nDataRecords:=<1>
-	lst_&lstName&_cnt = nDataRecords
-	lc_cntr = 1
-	REPEAT nDataRecords
-		@CatStr(<lst_&lstName&_1_>,%lc_cntr) TEXTEQU <>
-		lc_cntr = lc_cntr + 1
+lst_create macro lstName:req,nLines:=<1>,nDataRecords:=<1>
+	lst_&lstName&_cnt = nLines
+	lc_cntr2 = 1
+	REPEAT nLines
+		lc_cntr = 1
+		REPEAT nDataRecords
+			@CatStr(<lst_&lstName&_>,%lc_cntr2,<_>,%lc_cntr) TEXTEQU <>
+			lc_cntr = lc_cntr + 1
+		ENDM
+		lc_cntr2 = lc_cntr2 + 1
 	ENDM
 endm
 

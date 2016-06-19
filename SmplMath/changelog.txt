@@ -52,3 +52,9 @@
                          - pop-Attribute
                          - free-Attribute
             improvement: FPU registers can be used as destination operand
+
+20.02.2012  Version 1.0.11
+            bugfix:     lst_create-macro: invalid parameter usage
+
+18.03.2012  Version 1.0.12
+            improvement: faEQ(a,b,f) compare simplified: return((abs(a-b) <= abs(a*f))?1:0)

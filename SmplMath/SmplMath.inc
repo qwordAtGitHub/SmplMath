@@ -1145,7 +1145,7 @@ fcmpx macro cmpSuffix,approxEQ:=<0>,args:VARARG ;cmpSuffix,approxEQ:=<0>,a:req,b
 		ENDIF
 		fcmpx_cntr=fcmpx_cntr+1
 	ENDM
-	IF fcmpx_cntr LT 2 OR (approxEQ NE 0 AND fcmpx_cntr LT 3)
+	IF fcmpx_cntr LT 2
 		.err <missing arguments>
 		EXITM
 	ELSEIFB <&cmpSuffix>
@@ -1154,6 +1154,12 @@ fcmpx macro cmpSuffix,approxEQ:=<0>,args:VARARG ;cmpSuffix,approxEQ:=<0>,a:req,b
 			EXITM
 		ENDIF
 	ENDIF
+	
+	IF approxEQ NE 0
+		IFB fcmpx_factor
+			fcmpx_factor TEXTEQU <1.0E-2>
+		ENDIF
+	ENDIF	
 	
 	IFB fcmpx_pByte
 		IFNB <&cmpSuffix>
@@ -1293,33 +1299,49 @@ fcmpx macro cmpSuffix,approxEQ:=<0>,args:VARARG ;cmpSuffix,approxEQ:=<0>,a:req,b
 				EXITM
 			ENDIF
 		ENDIF
-		
+
 		fld st
 		fmul feqa_txt
 		fabs
-		fld st
-		fadd st,st(2)
-		fcomip st,st(3)
-		.if !CARRY?
-			fchs
-			faddp st(1),st
-			fcomip st,st(1)
-			fstp st
-			IFB fcmpx_pByte
-				setbe fcmp_bool_byte
-			ELSE
-				setbe BYTE ptr (fcmpx_pByte)
-			ENDIF
-		.else
-			fstp st
-			fstp st
-			fstp st
-			IFB fcmpx_pByte
-				mov fcmp_bool_byte,0
-			ELSE
-				mov BYTE ptr (fcmpx_pByte),0
-			ENDIF
-		.endif
+		fxch st(2)
+		fsubp st(1),st
+		fabs
+		fcomip st,st(1)
+		fstp st
+		IFB fcmpx_pByte
+			setbe fcmp_bool_byte
+		ELSE
+			setbe BYTE ptr (fcmpx_pByte)
+		ENDIF
+
+; 18032012		
+;		fld st
+;		fmul feqa_txt
+;		fabs
+;		fld st
+;		fadd st,st(2)
+;		fcomip st,st(3)
+;		.if !CARRY?
+;			fchs
+;			faddp st(1),st
+;			fcomip st,st(1)
+;			fstp st
+;			IFB fcmpx_pByte
+;				setbe fcmp_bool_byte
+;			ELSE
+;				setbe BYTE ptr (fcmpx_pByte)
+;			ENDIF
+;		.else
+;			fstp st
+;			fstp st
+;			fstp st
+;			IFB fcmpx_pByte
+;				mov fcmp_bool_byte,0
+;			ELSE
+;				mov BYTE ptr (fcmpx_pByte),0
+;			ENDIF
+;		.endif
+
 		IFNB fcmpx_pByte
 			fcmp_bool_byte TEXTEQU <BYTE ptr !(>,fcmpx_pByte,<!)>
 		ENDIF	
