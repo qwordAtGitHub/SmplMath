@@ -1,0 +1,13 @@
+*
+!.gitignore
+!*/
+!*.asm
+!*.inc
+!*.pdf
+!*.exe
+!*.lib
+!*.dll
+!*.def
+!*.prra
+!*.txt
+!*.exp
