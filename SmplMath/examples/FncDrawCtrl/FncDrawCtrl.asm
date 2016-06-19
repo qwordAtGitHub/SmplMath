@@ -1,6 +1,6 @@
 .nolist
-include masm32rt.inc
-.686p
+include \masm32\include\masm32rt.inc
+.686
 .mmx
 .xmm
 

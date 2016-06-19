@@ -1,7 +1,7 @@
 ;/********************************************************
 ; * This file is part of the SmplMath macros-system.     *
 ; *                                                      *
-; *          Copyright by qWord, 2011/2013               *
+; *          Copyright by qWord, 2011-2014               *
 ; *                                                      *
 ; *          SmplMath.Masm{at}gmx{dot}net                *
 ; *    http://sourceforge.net/projects/smplmath/         *
@@ -36,9 +36,9 @@ fslv10_def_real_type = 10	;/
 @fslv8_def_int_type = 4     ;-@fSlv8()
 @fslv8_def_real_type = 8    ;/
 @fslvI_def_int_type = 4     ;-@fSlvI()
-@fslvI_def_real_type = 4    ;/
+@fslvI_def_real_type = 8    ;/
 @fslvI64_def_int_type = 4   ;-@fSlvI64()
-@fslvI64_def_real_type = 4  ;/
+@fslvI64_def_real_type = 8  ;/
 
 fsTSA_glbl_int_type = 4
 fsTSA_glbl_real_type = 4
@@ -607,6 +607,7 @@ IF @WordSize EQ 4
 ELSE
 	fslv_volatile_xmm_regs TEXTEQU <xmm0,xmm1,xmm2,xmm3,xmm4,xmm5>
 ENDIF
+fslv_volatile_xmmregs_nesting = 0
 
 fslv_regc_txt TEXTEQU <>
 fslv_regc_val TEXTEQU <>
@@ -705,13 +706,31 @@ fSlvVolatileXmmRegs macro operation:=<add>,regs:VARARG
 		ELSE
 			fslv_volatile_xmm_regs TEXTEQU <xmm0,xmm1,xmm2,xmm3,xmm4,xmm5>
 		ENDIF
+	ELSEIFIDNI <&operation>,<push>
+		fslv_volatile_xmmregs_nesting = fslv_volatile_xmmregs_nesting + 1
+		@CatStr(<fslv_volatile_xmmregs_stck_>,%fslv_volatile_xmmregs_nesting) TEXTEQU fslv_volatile_xmm_regs
+	ELSEIFIDNI <&operation>,<pop>
+		fslv_volatile_xmm_regs TEXTEQU @CatStr(<fslv_volatile_xmmregs_stck_>,%fslv_volatile_xmmregs_nesting)
+		fslv_volatile_xmmregs_nesting = fslv_volatile_xmmregs_nesting - 1
 	ELSE
 		.err <invalid macro usage: &operation>
 	ENDIF
 endm
 
+@IsVolatileXmmReg macro regName:req
+	qivxmr_match = 0
+%	FOR arg0,<fslv_volatile_xmm_regs>
+		IFIDNI <&arg0>,<&regName>
+			qivxmr_match = -1
+			EXITM
+		ENDIF
+	ENDM
+	EXITM %qivxmr_match
+endm
+
 fslv_volatile_gp_regs TEXTEQU <>
 fslv_volatile_gprs = 0
+fslv_volatile_regs_nesting = 0
 
 FSVGPR_EAX	EQU 1
 FSVGPR_EBX	EQU 2
@@ -800,6 +819,12 @@ fSlvVolatileGPReg macro operation:=<add>,regs:VARARG
 			.err <invalid usage: no additinal arguments are allowed>
 		ENDIF
 		fslv_volatile_gp_regs TEXTEQU <>
+	ELSEIFIDNI <&operation>,<push>
+		fslv_volatile_regs_nesting = fslv_volatile_regs_nesting + 1
+		@CatStr(<fslv_volatile_regs_stck_>,%fslv_volatile_regs_nesting) TEXTEQU fslv_volatile_gp_regs
+	ELSEIFIDNI <&operation>,<pop>
+		fslv_volatile_gp_regs TEXTEQU @CatStr(<fslv_volatile_regs_stck_>,%fslv_volatile_regs_nesting)
+		fslv_volatile_regs_nesting = fslv_volatile_regs_nesting - 1
 	ELSE
 		.err <invalid macro usage: &operation>
 		EXITM
@@ -964,6 +989,7 @@ FSF_USE_FPU			EQU 1	; use the FPU. This flag has a lower priority than FSF_USE_S
 FSF_USE_SSE2		EQU 2	; use SSE2 if possible. The FPU is also used, if necessary. (this is the default for x64) 
 FSF_REUSE_BY_TYPE	EQU 4	; reuse contants only, if the types are equal -  this flag applies only to integer contants
 FSF_CHECK_SQWORD	EQU 8	; check QWORD-constants for range (only decimal)
+FSF_NO_INT_CONSTS	EQU 16	; do not create integer constants -> convert them to REAL4/8/10 constants
 FSF_INSTRSET_MSK	EQU (FSF_USE_FPU or FSF_USE_SSE2)
 
 ;;FSF_USE_VCRT		EQU 
@@ -1061,6 +1087,67 @@ fpuSetPrecision macro mem16:=<WORD ptr T_EXPR([esp-2],[rsp])>,prec:=<REAL8>
 	ELSE
 		.err <invalid precision specifier: &prec>
 	ENDIF
+endm
+
+fpuSetRoundingMode macro mem16:=<WORD ptr T_EXPR([esp-2],[rsp])>,mode:=<nearest>
+	IFIDNI <&mode>,<nearest>
+		fstcw mem16
+		and mem16,NOT 110000000000y
+		fldcw mem16
+	ELSEIFIDNI <&mode>,<down>
+		fstcw mem16
+		and mem16,NOT 110000000000y
+		or mem16,010000000000y
+		fldcw mem16
+	ELSEIFIDNI <&mode>,<up>
+		fstcw mem16
+		and mem16,NOT 110000000000y
+		or mem16,100000000000y
+		fldcw mem16
+	ELSEIFIDNI <&mode>,<truncate>
+		fstcw mem16
+		or mem16,110000000000y
+		fldcw mem16
+	ELSE
+		.err <invalid rounding mode specifier: &mode>
+	ENDIF
+endm
+
+fpuSetControlWord macro mem16:=<WORD ptr T_EXPR([esp-2],[rsp])>,prec:=<REAL8>,mode:=<nearest>
+	fpuscw_prec_ormsk = 0
+	fpuscw_prec_andmsk = 0
+	
+	IFIDNI <&prec>,<REAL4>
+		fpuscw_prec_andmsk = 0300h
+	ELSEIFIDNI <&prec>,<REAL8>
+		fpuscw_prec_andmsk = 0300h
+		fpuscw_prec_ormsk = 0200h
+	ELSEIFIDNI <&prec>,<REAL10>
+		fpuscw_prec_ormsk = 0300h
+	ELSE
+		.err <invalid precision specifier: &prec>
+	ENDIF
+	IFIDNI <&mode>,<nearest>
+		fpuscw_prec_andmsk = fpuscw_prec_andmsk OR 110000000000y
+	ELSEIFIDNI <&mode>,<down>
+		fpuscw_prec_andmsk = fpuscw_prec_andmsk OR 110000000000y
+		fpuscw_prec_ormsk = fpuscw_prec_ormsk OR 010000000000y
+	ELSEIFIDNI <&mode>,<up>
+		fpuscw_prec_andmsk = fpuscw_prec_andmsk OR 110000000000y
+		fpuscw_prec_ormsk = fpuscw_prec_ormsk OR 100000000000y
+	ELSEIFIDNI <&mode>,<truncate>
+		fpuscw_prec_ormsk = fpuscw_prec_ormsk OR 110000000000y
+	ELSE
+		.err <invalid rounding mode specifier: &mode>
+	ENDIF
+	fstcw mem16
+	IF fpuscw_prec_andmsk
+		and mem16,NOT fpuscw_prec_andmsk
+	ENDIF
+	IF fpuscw_prec_ormsk
+		or mem16,fpuscw_prec_ormsk
+	ENDIF
+	fldcw mem16
 endm
 
 ldl_expand macro _arg
@@ -1245,16 +1332,17 @@ fSlvRegExpr macro ExprName:req,nArgs:=<0>,Expression:VARARG
 	ENDIF
 	
 	fsre_cntr = 1
+	fsre_argcnt = 0
 	REPEAT nArgs
 	%	IF @InStr(1,<&Expression>,@CatStr(<arg>,%fsre_cntr)) EQ 0
-			fsre_cntr = 0
+			fsre_argcnt = fsre_cntr
 			EXITM
 		ENDIF
 		fsre_cntr = fsre_cntr + 1
 	ENDM
 	
-	IF fsre_cntr EQ 0 AND nArgs NE 0
-		.err < fSlveRegExpr(<&ExprName>,<&nArgs>,<&Expression>): missing arguments (argX) in Expression>
+	IF fsre_argcnt
+		.err @CatStr(<fSlveRegExpr: missing argument !<arg>,%fsre_argcnt,<!>>)
 		EXITM
 	ENDIF
 	
@@ -1276,17 +1364,18 @@ fSlvRegRecursiveExpr macro ExprName:req,nArgs:=<1>,Rest:=<0>,Expression:VARARG
 		EXITM
 	ENDIF
 	
+	fsre_argcnt = 0
 	fsre_cntr = 1
 	REPEAT nArgs
 	%	IF @InStr(1,<&Expression>,@CatStr(<arg>,%fsre_cntr)) EQ 0
-			fsre_cntr = 0
+			fsre_argcnt = fsre_cntr
 			EXITM
 		ENDIF
 		fsre_cntr = fsre_cntr + 1
 	ENDM
 	
-	IF fsre_cntr EQ 0 AND nArgs NE 0
-		.err <_fSlvRegRecursiveExpr: missing arguments (argX) in _Expression>
+	IF fsre_argcnt
+		.err @CatStr(<fSlvRegRecursiveExpr: missing argument !<arg>,%fsre_argcnt,<!>>)
 		EXITM
 	ENDIF
 	
@@ -1317,7 +1406,7 @@ fSlvRegIteratedExpr macro ExprName:req,nArgs:=<1>,Rest:=<0>,Expression:VARARG
 		fsre_cntr = fsre_cntr + 1
 	ENDM
 	
-	IF fsre_cntr EQ 0 AND nArgs NE 0
+	IF fsre_cntr EQ 0 AND nArgs NE 0 AND fsre_cntr GT 1
 		.err <_fSlvRegIteratedExpr: missing arguments (argX) in _Expression>
 		EXITM
 	ENDIF
@@ -1369,12 +1458,8 @@ endm
 ;/*
 ; * fcmp a,b
 ; * compare two numeric values, passed as variables or as immediate values, and set the
-; * eflags according to the result (use ja,jb,... and NOT jg,jl...). For comparision FCOMIP is used. 
-; * The following immediate values cause the macros to create special code instead of constants:
-; *                        <0>,<0.0>,<1>,<1.0>,<-1>,<-1.0>
-; * Supported data types: all x86-87 specific data types (FLD/FILD) and all 32Bit-GPRs (eax,edx,...).
-; * For loading GPRs the memory location [esp-64] is used! This macro will only works correct, 
-; * when called in the code section (.code).
+; * eflags according to the result (use ja,jb,jbe,jae,... ). The usable operands depends on the selected back end.
+; * 
 ; * Example:
 ; *     fcmp r4Var1,1.0E-7
 ; *     jae xyz
@@ -1382,72 +1467,45 @@ endm
 fcmp macro args:VARARG
 	fcmpx <>,0,args
 endm
-fcmp_smpl=0
 
-;/*
-; * fEQ/NE/GT/GE/LT/LE(a,b,pByte)
-; * compare two numeric values, passed as variables or immediate values, and return the boolean
-; * result as a byte (0 or 1). For comparison FCOMIP is used. The following immediate values cause the
-; * macros to create special code instead of constants: <0>,<0.0>,<1>,<1.0>,<-1>,<-1.0>
-; * Supported data types: all x86-87 specific data types (FLD/FILD), but no FPU registers. Also you can
-; * use all 32/16/8Bit-GPRs (eax,edx,ax,dx,ah,al,...) and the register pair edx::eax.
-; * For loading GPRs the memory location 'xWORD ptr [esp-(SIZEOF xWORD)]' is used!
-; * 
-; * [> If local storage is initialized by the macro fSlvTLS(), the following section doesn't applies <]
-; * The parameter pByte is an optional BYTE variable. If this parameter is not specified,
-; * a BYTE is allocated in the BSS segment (.data?), thus the produced code is NOT thread-safe! By 
-; * passing a local variable or an ESP-relative expression, thread-safe code can be created (see example)
-; *
-; * Also DO NOT USE these macros with .ELSEIF and .WHILE - it won't work!
-; * Other notes: This macro will only work correct, when called in the code section (.code)
-; *
-; * Example:
-; * .if fEQ(r4Var,12.34) && fGT(r4Var2,3) ; not thread-safe (except: fSlvTLS() is used)
-; *    ...
-; * .emdif
-; *
-; * .if fEQ(r4Var,12.34,[esp-1]) && fGT(r4Var2,3,[esp-2]) ; thread safe
-; *    ...
-; * .endif
-; */
-fEQ macro args:VARARG ; a:req,b:req,pByte
+fEQ macro args:VARARG ; a:req,b:req
 	@fEQ_nc=@fEQ_nc+1
 	fcmpx <e>,0,args
 	EXITM fcmp_bool_byte
 endm
-fNE macro args:VARARG ; a:req,b:req,pByte
+fNE macro args:VARARG ; a:req,b:req
 	@fNE_nc=@fNE_nc+1
 	fcmpx <ne>,0,args
 	EXITM fcmp_bool_byte
 endm
-fGT macro args:VARARG ; a:req,b:req,pByte
+fGT macro args:VARARG ; a:req,b:req
 	@fGT_nc=@fGT_nc+1
 	fcmpx <!a>,0,args
 	EXITM fcmp_bool_byte
 endm
-fGE macro args:VARARG ; a:req,b:req,pByte
+fGE macro args:VARARG ; a:req,b:req
 	@fGE_nc=@fGE_nc+1
 	fcmpx <ae>,0,args
 	EXITM fcmp_bool_byte
 endm
-fLT macro args:VARARG ; a:req,b:req,pByte
+fLT macro args:VARARG ; a:req,b:req
 	@fLT_nc=@fLT_nc+1
 	fcmpx <!b>,0,args
 	EXITM fcmp_bool_byte
 endm
-fLE macro args:VARARG ; a:req,b:req,pByte
+fLE macro args:VARARG ; a:req,b:req
 	@fLE_nc=@fLE_nc+1
 	fcmpx <be>,0,args
 	EXITM fcmp_bool_byte
 endm
 
-faEQ  macro args:VARARG ;a:req,b:req,factor:=<1.0E-2>,pByte
+faEQ  macro args:VARARG ;a:req,b:req,factor:=<1.0E-2>
 	@faEQ_nc=@faEQ_nc+1
 	fcmpx <foo>,1,args
 	EXITM fcmp_bool_byte
 endm
 
-fTest macro args:VARARG ;a:req,b:req,exp_diff:=<20>,pByte
+fTest macro args:VARARG ;a:req,b:req,exp_diff:=<20>
 	@fTest_nc=@fTest_nc+1
 	fcmpx <zero test>,1,args
 	EXITM fcmp_bool_byte
@@ -1463,8 +1521,21 @@ fcmpx macro cmpSuffix,approxEQ:=<0>,args:VARARG ;cmpSuffix,approxEQ:=<0>,a:req,b
 	ENDIF
 	lfs_nss = 0
 	lfs_stack_cntr = 0
+	
+	fslv_lcl_real_type = fcmp_def_real_type
+	fslv_lcl_int_type  = fcmp_def_int_type
+	fslv_attributes? = 0
+	fcmpx_args TEXTEQU <&args>
+	fslv_extract_attributes <&args>
+	IF fsea_found NE 0
+		fcmpx_args TEXTEQU fsea_expr
+		fslv_current_attributes TEXTEQU fsea_attributes
+		fslv_attributes? = 1
+		fslv_local_type_from_attributes fcmp_def_real_type,fcmp_def_int_type,%fsea_attributes
+	ENDIF
+	
 	IFE FSBE_FNC(%FSBE_ENTITY,%FSEN_INIT,%__SMPLMATH__,-1)
-		.err <can't initialize back end>
+		.err <can not initialize back end>
 		fcmp_bool_byte TEXTEQU fslv_retval@error(BOOLEAN_BYTE)
 		fslv_glb_error = 1
 		EXITM
@@ -1489,24 +1560,15 @@ fcmpx macro cmpSuffix,approxEQ:=<0>,args:VARARG ;cmpSuffix,approxEQ:=<0>,a:req,b
 		fcmp_line = @Line
 	ENDIF
 
-	fslv_lcl_real_type = fcmp_def_real_type
-	fslv_lcl_int_type  = fcmp_def_int_type
-	fslv_attributes? = 0
-	fcmpx_args TEXTEQU <&args>
-	fslv_extract_attributes <&args>
-	IF fsea_found NE 0
-		fcmpx_args TEXTEQU fsea_expr
-		fslv_current_attributes TEXTEQU fsea_attributes
-		fslv_attributes? = 1
-		fslv_local_type_from_attributes fcmp_def_real_type,fcmp_def_int_type,%fsea_attributes
-	ENDIF
-
 	fcmpx_a TEXTEQU <>
 	fcmpx_b TEXTEQU <>
 	fcmpx_pByte TEXTEQU <>
 	fcmpx_factor TEXTEQU <>
 	fcmp_bool_byte TEXTEQU <>
 	
+	IFNB FSBE_ENUM_TKN
+		FSBE_PROC %FSBE_ENUM_TKN,%FSB_ENUM_START,<>,0
+	ENDIF
 	fcmpx_cntr=0
 %	FOR _arg,<fcmpx_args>
 		IF fcmpx_cntr EQ 0
@@ -1527,8 +1589,18 @@ fcmpx macro cmpSuffix,approxEQ:=<0>,args:VARARG ;cmpSuffix,approxEQ:=<0>,a:req,b
 			fslv_glb_error = 1
 			EXITM
 		ENDIF
+		IFNB FSBE_ENUM_TKN
+			FSBE_PROC %FSBE_ENUM_TKN,%FSB_ENUM_TKN,<<&_arg>>,%TMT_TXT
+		ENDIF
 		fcmpx_cntr=fcmpx_cntr+1
 	ENDM
+	IFNB FSBE_ENUM_TKN
+		FSBE_PROC %FSBE_ENUM_TKN,%FSB_ENUM_END,<>,0
+	ENDIF
+	IF fslv_glb_error
+		EXITM
+	ENDIF
+	
 	IF fcmpx_cntr LT 2
 		.err <missing arguments>
 		fcmp_bool_byte TEXTEQU fslv_retval@error(BOOLEAN_BYTE)
@@ -1832,13 +1904,13 @@ endm
 			fstsa_dest TEXTEQU <>
 		ELSE
 			fsTSA_lcl_int_type = fsTSA_glbl_int_type
-			fsTSA_lcl_real_type = fsTSA_glbl_int_type
+			fsTSA_lcl_real_type = fsTSA_glbl_real_type
 		ENDIF
 	ELSE
 		fstsa_expr SUBSTR fstsa_arg,fstsa_pos+1
 		fstsa_dest TEXTEQU <>
 		fsTSA_lcl_int_type = fsTSA_glbl_int_type
-		fsTSA_lcl_real_type = fsTSA_glbl_int_type
+		fsTSA_lcl_real_type = fsTSA_glbl_real_type
 	ENDIF
 	
 	IFNB fstsa_dest

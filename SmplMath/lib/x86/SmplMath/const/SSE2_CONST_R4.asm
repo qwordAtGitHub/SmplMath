@@ -1,7 +1,7 @@
 ;/********************************************************
 ; * This file is part of the SmplMath macros-system.     *
 ; *                                                      *
-; *          Copyright by qWord, 2011/2013               *
+; *          Copyright by qWord, 2011-2014               *
 ; *                                                      *
 ; *          SmplMath.Masm{at}gmx{dot}net                *
 ; *    http://sourceforge.net/projects/smplmath/         *

@@ -1,7 +1,7 @@
 ;/********************************************************
 ; * This file is part of the SmplMath macros-system.     *
 ; *                                                      *
-; *          Copyright by qWord, 2011/2013               *
+; *          Copyright by qWord, 2011-2014               *
 ; *                                                      *
 ; *          SmplMath.Masm{at}gmx{dot}net                *
 ; *    http://sourceforge.net/projects/smplmath/         *
@@ -470,7 +470,7 @@ endm
 ;                   tmt={0,1}       <internal - do not use>
 ;                   If a column has more than one option, enclose them with angle brackets:
 ;                   ...,<>,<<width=5,ralgin=1>>,...
-;                   (<> is needed, if a column has not option)
+;                   (<> is needed, if a column has no option)
 ;
 ll_DebugOut macro LLName:req,nDataRecords:=<1>,ColumnWidth:=<8>,bTblEx:=<0>,ClmnOptn:VARARG
 	IFNDEF LL_&LLName&_cnt

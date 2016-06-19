@@ -1,4 +1,26 @@
-10.02.2012  Version 2.0.0
+17.04.2013  Version 2.0.1
+            improvement: - @GetArgByIndex(), FOR loop breaks on match
+                         - fSlvVolatileGPReg/fSlvVolatileXmmRegs: push/pop operation added
+                         - typecasts for XMM registers are allowed: REAL4/8 ptr XmmReg
+            added:       - fpuSetRoundingMode- and fpuSetControlWord macro
+                         - global flag FSF_NO_INT_CONSTS
+                         - internal: @IsTypedXmmReg()
+            change:      - the default real-precision of the @fSlvI() and @fSlvI64 macros 
+                           has changed from REAL4 to REAL8.
+                         - internal: fcmpx does enumerate tokens
+                         - @IsReal/IntType: can also handle typecasted XMM registers (REAL4 and REAL8).
+                           Also, a special implementation for jWasm has add to avoid the usage of the OPATTR-operator, which is
+                           currently not compatible to MASM (will be removed if the bug in jWasm is fixed).
+                         - SSE2 back end: integer constants must fit in 32 bits. (because they are assigned to equates "=" for conversion: int->real)
+                         - some MOVLPD instructions replaced by MOVSD
+            bugfix:      - @fSlvTSA -> global int type used for local real type
+                         - integer back end: for reg0-mem32/64 -> MOV was used instead SUB
+                         - SSE2 back end: faEQ() fixed
+                         - sgn()-function: ORPS used instead ORPD
+                         - for compare operations, XMM register arguments were not marked as non-volatile.
+                         - internal: fcmpx: attribute list was processed after FSEN_INIT.
+
+10.02.2013  Version 2.0.0
             added:       - Back end macro-interface introduced.
                            The different instruction sets (x86-integer,FPU,SSE2/FPU) are implemented in so called back ends.
                            A back end consist of macros that are called by the fSlv-macros when a specific operation
@@ -58,7 +80,7 @@
                            Also the function respons to some special values: 0^0=1, x^0=1, 0^x=0, 0^(-x)=div. by zero
                          - the macros support multiple, comma seperated expressions.
                          - the __MODULE__-constant is gone out of use.
-                         - constant integer expressions (+-*/^) may be calculated while assembling if the local intger size is 4
+                         - constant integer expressions (+-*/^) may be calculated while assembling if the local integer size is 4
                            and the result is also an integer.
                          - constant rvalues for division may be replaced by a multiplication with the reciprocal (implemented in the back ends)
                          - the macros R4/8/10 are renamed for x64: _R4/8/10. For x32, corresponding EQU's added.
@@ -78,7 +100,7 @@
                          - The parser may emit missplaced "push" tokens.
                          - negativ signs may be discarded for constant expressions like: 1-1.0 -> 1+1.0
 
-            misc.:       - GOTO has been removed from all macros becasue it simply cause to strange errors (for all version of MASM)
+            misc.:       - GOTO has been removed from all macros because it simply cause to strange errors (for all version of MASM)
 
 
 04.09.2012  Version 1.1.0 (unpublished)

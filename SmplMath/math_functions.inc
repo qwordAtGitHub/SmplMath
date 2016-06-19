@@ -1,7 +1,7 @@
 ;/********************************************************
 ; * This file is part of the SmplMath macros-system.     *
 ; *                                                      *
-; *          Copyright by qWord, 2011/2013               *
+; *          Copyright by qWord, 2011-2014               *
 ; *                                                      *
 ; *          SmplMath.Masm{at}gmx{dot}net                *
 ; *    http://sourceforge.net/projects/smplmath/         *
@@ -346,7 +346,7 @@ endm
 
 fslv_fnc_ireg_expd macro arg0,free1,free2,free3,free_regs:VARARG
 LOCAL lbl1,lbl2,end_lbl,@unordered
-
+	
 	comisd arg0,sse2_ExpD.xMax
 	jbe lbl1
 	jp @unordered
@@ -649,7 +649,7 @@ fslv_fnc_ireg_sgn macro arg0,free_regs:VARARG
 		orps arg0,OWORD ptr sse2_ss_one
 	ELSE
 		andpd arg0,sse2_sd_neg_msk
-		orps arg0,OWORD ptr sse2_sd_one
+		orpd arg0,OWORD ptr sse2_sd_one
 	ENDIF
 endm
 default_fnc_dscptr2 <sgn>,nArgs=1,fpu=-1,x64=-1,SSE2=-1,IReg=-1

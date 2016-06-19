@@ -1,7 +1,7 @@
 ;/********************************************************
 ; * This file is part of the SmplMath macros-system.     *
 ; *                                                      *
-; *          Copyright by qWord, 2011/2013               *
+; *          Copyright by qWord, 2011-2014               *
 ; *                                                      *
 ; *          SmplMath.Masm{at}gmx{dot}net                *
 ; *    http://sourceforge.net/projects/smplmath/         *
@@ -219,6 +219,7 @@ endm
 	FOR _arg,<&args>
 		IF index EQ gabi_index
 			gabi_arg TEXTEQU <&_arg>
+			EXITM
 		ENDIF
 		gabi_index = gabi_index + 1
 	ENDM
@@ -360,19 +361,19 @@ endm
 ;   sff_num_pos:        points to begin of num (in txt)                                                     ;
 ;                                                                                                           ;
 ;   The following textequ's depends on sff_flag and/or the type of num:                                     ;
-;    +------------------+----------------+-----+------------------------+-------------------------+         ;
-;    |      name        |      flag      |type |      description       |  characters             |         ;
-;    +------------------+----------------+-----+------------------------+-------------------------+         ;
-;    | sff_sign         | SFF_SIGN       | 1,2 | sign of num. Not used  | <+->                    |         ;
-;    |                  |                |     | for FP values in       |                         |         ;
-;    |                  |                |     | hex. notation.         |                         |         ;
-;    | sff_pre_decimal  |                | 1,2 | pre-decimal positions  | <0123456789>            |         ;
-;    | sff_fract_digits |                | 1   | post decimal positions | <0123456789>            |         ;
-;    | sff_exp_sign     | SFF_EXP_SIGN   | 1   | sign of the exponent   | <+->                    |         ;
-;    |                  | +SFF_EXPONENT  |     |                        |                         |         ;
-;    | sff_exp_digits   | SFF_EXPONENT   | 1   | exponent-digits        | <0123456789>            |         ;
-;    | sff_hex_digits   | SFF_HEX_SUFFIX | 1,2 | hex-digits             | <0123456789abcdefABCDEF>|         ;
-;    +------------------+----------------+-----+------------------------+-------------------------+         ;
+;    +------------------+------------------+-----+------------------------+-------------------------+       ;
+;    |      name        |      flag        |type |      description       |  characters             |       ;
+;    +------------------+------------------+-----+------------------------+-------------------------+       ;
+;    | sff_sign         | SFF_SIGN         | 1,2 | sign of num. Not used  | <+->                    |       ;
+;    |                  |                  |     | for FP values in       |                         |       ;
+;    |                  |                  |     | hex. notation.         |                         |       ;
+;    | sff_pre_decimal  |                  | 1,2 | pre-decimal positions  | <0123456789>            |       ;
+;    | sff_fract_digits | SFF_FRACT_DIGITS | 1   | post decimal positions,| <0123456789>            |       ;
+;    | sff_exp_sign     | SFF_EXP_SIGN     | 1   | sign of the exponent   | <+->                    |       ;
+;    |                  | +SFF_EXPONENT    |     |                        |                         |       ;
+;    | sff_exp_digits   | SFF_EXPONENT     | 1   | exponent-digits        | <0123456789>            |       ;
+;    | sff_hex_digits   | SFF_HEX_SUFFIX   | 1,2 | hex-digits             | <0123456789abcdefABCDEF>|       ;
+;    +------------------+------------------+-----+------------------------+-------------------------+       ;
 ;                                                                                                           ;
 ; Examples:                                                                                                 ;
 ;   1       @ScanForFlt(1,< 1.0E-19 >)     --> 1 , sff_numstr=<1.0E-19> , sff_pos=9                         ;
@@ -385,7 +386,7 @@ endm
 ;   7       @ScanForFlt(1,<12()>,default)  --> 0                                                            ;
 ;   8       myChars TEXTEQU <   +-*/()>                                                                     ;
 ;           @ScanForFlt(1,<12()>,myChars)  --> 2 , sff_numstr=<12>      , sff_pos=3                         ;
-;                                                                                       by qWord, 2008-2013 ;
+;                                                                                       by qWord, 2008-2014 ;
 ;-----------------------------------------------------------------------------------------------------------;
 @ScanForFlt macro pos:req,txt:=<>,Chr
 
@@ -557,7 +558,7 @@ endm
 				sff_pos = sff_pos + 1
 			ENDIF
 		
-		:sff_exp_dig
+;		:sff_exp_dig
 			IF sff_pos GT sff_size
 				sff_skip_to_check = 1
 			ENDIF
@@ -983,63 +984,157 @@ lsdo_is_optn_def macro num,optn,var
 	EXITM <0>
 endm
 
-@IsRealType macro memOpattr:=<>
-	irt_type = 0
-	IFB <&memOpattr>
-		EXITM <0>
-	ELSEIF @InStr(1,<&memOpattr>,<::>) NE 0
-		EXITM <0>
-	ENDIF
-	IF type (memOpattr) EQ REAL4
-		irt_type = 4
-		EXITM <4>
-	ELSEIF type (memOpattr) EQ REAL8
-		irt_type = 8
-		EXITM <8>
-	ELSEIF type (memOpattr) EQ REAL10
-		irt_type = 10
-		EXITM <10>
-	ENDIF
-	EXITM <0>
-endm
+IFNDEF __JWASM__  ; fix for version 2.10 
 
-@IsIntegerType macro memOpattr:=<>
-	iit_type = 0
-	IFB <&memOpattr>
+	@IsRealType macro memOpattr:=<>
+		irt_type = 0
+		IFB <&memOpattr>
+			EXITM <0>
+		ELSEIF @InStr(1,<&memOpattr>,<::>) NE 0
+			EXITM <0>
+		ELSEIFE OPATTR memOpattr
+			IF @InStr(1,<&memOpattr>,< x>) OR @InStr(1,<&memOpattr>,< X>) OR @InStr(1,<&memOpattr>,<	x>) OR @InStr(1,<&memOpattr>,<	X>)
+				IFNDEF @IsTypedXmmReg
+					EXITM <0>
+				ENDIF
+				IF @IsTypedXmmReg(<&memOpattr>,REAL4,REAL8) NE 0
+					IF istxr_type GT 0
+						EXITM %(istxr_type*4)
+					ENDIF
+				ENDIF
+			ENDIF
+			EXITM <0>
+		ENDIF
+		IF type (memOpattr) EQ REAL4
+			irt_type = 4
+			EXITM <4>
+		ELSEIF type (memOpattr) EQ REAL8
+			irt_type = 8
+			EXITM <8>
+		ELSEIF type (memOpattr) EQ REAL10
+			irt_type = 10
+			EXITM <10>
+		ENDIF
 		EXITM <0>
-	ELSEIF @InStr(1,<&memOpattr>,<::>) NE 0
-		FOR _arg,<&memOpattr>
-			IFIDNI <&_arg>,<edx::eax>
-				iit_type = 8
-			ENDIF
-			EXITM
-		ENDM
-		EXITM @CatStr(%iit_type)
-	ENDIF
-	IF (type (memOpattr) EQ BYTE) OR (type (memOpattr) EQ SBYTE)
-		iit_type = 1
-		EXITM <1>
-	ELSEIF (type (memOpattr) EQ WORD) OR (type (memOpattr) EQ SWORD)
-		iit_type = 2
-		EXITM <2>
-	ELSEIF (type (memOpattr) EQ DWORD) OR (type (memOpattr) EQ SDWORD)
-		iit_type = 4
-		EXITM <4>
-	ELSE
-		IF @Version GE 800
-			IF (type (memOpattr) EQ QWORD) OR (type (memOpattr) EQ SQWORD)
-				iit_type = 8
-				EXITM <8>
-			ENDIF
+	endm
+	
+	@IsIntegerType macro memOpattr:=<>
+		iit_type = 0
+		IFB <&memOpattr>
+			EXITM <0>
+		ELSEIF @InStr(1,<&memOpattr>,<::>) NE 0
+			FOR _arg,<&memOpattr>
+				IFIDNI <&_arg>,<edx::eax>
+					iit_type = 8
+				ENDIF
+				EXITM
+			ENDM
+			EXITM @CatStr(%iit_type)
+		ELSEIFE OPATTR memOpattr
+			EXITM <0>
+		ENDIF
+		IF (type (memOpattr) EQ BYTE) OR (type (memOpattr) EQ SBYTE)
+			iit_type = 1
+			EXITM <1>
+		ELSEIF (type (memOpattr) EQ WORD) OR (type (memOpattr) EQ SWORD)
+			iit_type = 2
+			EXITM <2>
+		ELSEIF (type (memOpattr) EQ DWORD) OR (type (memOpattr) EQ SDWORD)
+			iit_type = 4
+			EXITM <4>
 		ELSE
-			IF (type (memOpattr) EQ QWORD)
-				iit_type = 8
-				EXITM <8>
+			IF @Version GE 800
+				IF (type (memOpattr) EQ QWORD) OR (type (memOpattr) EQ SQWORD)
+					iit_type = 8
+					EXITM <8>
+				ENDIF
+			ELSE
+				IF (type (memOpattr) EQ QWORD)
+					iit_type = 8
+					EXITM <8>
+				ENDIF
 			ENDIF
 		ENDIF
-	ENDIF
-	EXITM <0>
-endm
+		EXITM <0>
+	endm
+ELSE
+	@IsRealType macro memOpattr:=<>
+		irt_type = 0
+		IFB <&memOpattr>
+			EXITM <0>
+		ELSEIF @InStr(1,<&memOpattr>,<::>) NE 0
+			EXITM <0>
+		ELSE
+			IF @InStr(1,<&memOpattr>,< x>) OR @InStr(1,<&memOpattr>,< X>) OR @InStr(1,<&memOpattr>,<	x>) OR @InStr(1,<&memOpattr>,<	X>)
+				IFDEF @IsTypedXmmReg
+					IF @IsTypedXmmReg(<&memOpattr>,REAL4,REAL8) NE 0
+						IF istxr_type GT 0
+							EXITM %(istxr_type*4)
+						ENDIF
+						EXITM <0>
+					ENDIF
+				ENDIF
+			ENDIF
+		ENDIF
+		IF type (memOpattr) EQ REAL4
+			irt_type = 4
+			EXITM <4>
+		ELSEIF type (memOpattr) EQ REAL8
+			irt_type = 8
+			EXITM <8>
+		ELSEIF type (memOpattr) EQ REAL10
+			irt_type = 10
+			EXITM <10>
+		ENDIF
+		EXITM <0>
+	endm
+	
+	@IsIntegerType macro memOpattr:=<>
+		iit_type = 0
+		IFB <&memOpattr>
+			EXITM <0>
+		ELSEIF @InStr(1,<&memOpattr>,<::>) NE 0
+			FOR _arg,<&memOpattr>
+				IFIDNI <&_arg>,<edx::eax>
+					iit_type = 8
+				ENDIF
+				EXITM
+			ENDM
+			EXITM @CatStr(%iit_type)
+		ELSE
+			IF @InStr(1,<&memOpattr>,< x>) OR @InStr(1,<&memOpattr>,< X>) OR @InStr(1,<&memOpattr>,<	x>) OR @InStr(1,<&memOpattr>,<	X>)
+				IFDEF @IsTypedXmmReg
+					IF @IsTypedXmmReg(<&memOpattr>,REAL4,REAL8) NE 0
+						EXITM <0>
+					ENDIF
+				ENDIF
+			ENDIF
+		ENDIF
+		IF (type (memOpattr) EQ BYTE) OR (type (memOpattr) EQ SBYTE)
+			iit_type = 1
+			EXITM <1>
+		ELSEIF (type (memOpattr) EQ WORD) OR (type (memOpattr) EQ SWORD)
+			iit_type = 2
+			EXITM <2>
+		ELSEIF (type (memOpattr) EQ DWORD) OR (type (memOpattr) EQ SDWORD)
+			iit_type = 4
+			EXITM <4>
+		ELSE
+			IF @Version GE 800
+				IF (type (memOpattr) EQ QWORD) OR (type (memOpattr) EQ SQWORD)
+					iit_type = 8
+					EXITM <8>
+				ENDIF
+			ELSE
+				IF (type (memOpattr) EQ QWORD)
+					iit_type = 8
+					EXITM <8>
+				ENDIF
+			ENDIF
+		ENDIF
+		EXITM <0>
+	endm
+ENDIF
 
 unique_num_cntr = 0
 get_unique_lbl macro name:req
@@ -1049,6 +1144,13 @@ endm
 
 _IF$ macro cond:req,true:=<>,false:=<>
 	IF cond
+		EXITM <&true>
+	ENDIF
+	EXITM <&false>
+endm
+
+_IFE$ macro cond:req,true:=<>,false:=<>
+	IFE cond
 		EXITM <&true>
 	ENDIF
 	EXITM <&false>

@@ -1,7 +1,7 @@
 ;/********************************************************
 ; * This file is part of the SmplMath macros-system.     *
 ; *                                                      *
-; *          Copyright by qWord, 2011/2013               *
+; *          Copyright by qWord, 2011-2014               *
 ; *                                                      *
 ; *          SmplMath.Masm{at}gmx{dot}net                *
 ; *    http://sourceforge.net/projects/smplmath/         *
@@ -410,7 +410,7 @@ endm
 	EXITM <0>
 endm
 
-; return: one based register index: 1-8 fro x32 and 1-16 for x64, isxr_index = EXITM<>
+; return: one based register index: 1-8 for x32 and 1-16 for x64, isxr_index = EXITM<>
 ;         zero if no xmm register
 IF @Version GE 800
 @IsXmmReg macro txt
@@ -476,6 +476,69 @@ ELSE
 	EXITM <0>
 endm
 ENDIF
+
+; input: txt = pre-parsed token tht deos not contain operators, brackets, ...
+;        types = type qualifiers (REAL8,REAL4,...)
+; return: EXITM      = @IsXmmReg() 
+;         istxr_type = one based index in <types> or zero if no typecast found.
+;                      If a xmm register is typecasted with an unknown type (not in list <types>),
+;                      -1 is returned
+;         istxr_xmm_reg = register name without typecast
+@IsTypedXmmReg macro txt,types:VARARG
+	istxr_type = 0
+	istxr_xmm_reg TEXTEQU <>
+	IFB <&txt>
+		EXITM <0>
+	ENDIF
+	istxr_txt TEXTEQU @TrimStr(<&txt>)
+	istxr_size = @SizeStr(%istxr_txt)
+	istxr_pos1 INSTR 1,istxr_txt,< > ; space
+	istxr_pos2 INSTR 1,istxr_txt,<	> ; tab
+	IF (istxr_size LT 10) OR ((istxr_pos1 EQ 0) AND (istxr_pos2 EQ 0))  ; minimum size: <X ptr xmmY>
+		istxr_ret = @IsXmmReg(<&txt>)
+		IF istxr_ret
+			istxr_xmm_reg TEXTEQU <xmm>,%istxr_ret-1
+		ENDIF
+		EXITM %istxr_ret
+	ENDIF
+	IFE istxr_pos1
+		istxr_pos1 = istxr_pos2
+	ENDIF
+	IF (istxr_pos1 GT istxr_pos2) AND (istxr_pos2 NE 0)
+		istxr_pos1 = istxr_pos2
+	ENDIF
+	istxr_txt1 SUBSTR istxr_txt,1,istxr_pos1-1
+	istxr_txt2 SUBSTR istxr_txt,istxr_pos1+1
+	istxr_txt2 TEXTEQU @TrimStr(%istxr_txt2)
+	istxr_size = @SizeStr(%istxr_txt2)
+	istxr_pos1 INSTR 1,istxr_txt2,< > ; space
+	istxr_pos2 INSTR 1,istxr_txt2,<	> ; tab
+	IF (istxr_size LT 8) OR ((istxr_pos1 EQ 0) AND (istxr_pos2 EQ 0))  ; minimum size: <ptr xmmY>
+		EXITM <0> ; case: <X Y> -> no xmm reg
+	ENDIF
+	IFE istxr_pos1
+		istxr_pos1 = istxr_pos2
+	ENDIF
+	IF (istxr_pos1 GT istxr_pos2) AND (istxr_pos2 NE 0)
+		istxr_pos1 = istxr_pos2
+	ENDIF
+	istxr_txt3 SUBSTR istxr_txt2,1,istxr_pos1-1
+	istxr_txt4 SUBSTR istxr_txt2,istxr_pos1+1
+	IFDIFI istxr_txt3,<ptr>
+		EXITM <0>	; case: <X Y Z> -> no xmm reg
+	ENDIF
+	istxr_ret = @IsXmmReg(%istxr_txt4)
+	IFE istxr_ret
+		EXITM <0>
+	ELSE
+		istxr_xmm_reg TEXTEQU <xmm>,%istxr_ret-1
+	ENDIF
+	istxr_type = @TypeMatch(%istxr_txt1,types)
+	IFE istxr_type
+		istxr_type = -1
+	ENDIF
+	EXITM %istxr_ret
+endm
 
 @RemoveArgI macro discard,args:VARARG
 	IFNB <discard>

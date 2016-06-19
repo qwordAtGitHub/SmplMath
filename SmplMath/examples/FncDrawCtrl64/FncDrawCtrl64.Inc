@@ -127,7 +127,6 @@ INNER_FRAME struct
 INNER_FRAME ends
 PINNER_FRAME typedef ptr INNER_FRAME
 
-
 LABEL_INFOW struct
 	flg				DWORD		?		; flags for pens/brushes
 	pen 			PVOID		?		; pen used for marks

@@ -1,7 +1,7 @@
 ;/********************************************************
 ; * This file is part of the SmplMath macros-system.     *
 ; *                                                      *
-; *          Copyright by qWord, 2011/2013               *
+; *          Copyright by qWord, 2011-2014               *
 ; *                                                      *
 ; *          SmplMath.Masm{at}gmx{dot}net                *
 ; *    http://sourceforge.net/projects/smplmath/         *
@@ -13,7 +13,7 @@
 
 ;/* The following expressions can be used to evaluate Polynomials using Horner's method:
 ; *            p(x) = c[0]x^N + c[1]*x^(N-1) + c[2]*x^(N-2) + c[3]*x^(N-3) + ... 
-; *                 = (((x*c[0] + c[N-1])*x + c[2)*x + c[3])*x + ...    ; <-- Horner's method
+; *                 = (((x*c[0] + c[N-1])*x + c[2])*x + c[3])*x + ...    ; <-- Horner's method
 ; * Functions:
 ; *            r4/8Horner(N, x, c)
 ; *            THorner(N, x, c, element size)

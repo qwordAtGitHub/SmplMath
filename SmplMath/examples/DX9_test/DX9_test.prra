@@ -3,7 +3,7 @@ Version=3000
 [Project]
 Assembler=jWasm
 Group=2,-1,0,1,DX9_test,-2,-1,1,Assembly,-3,-1,1,Include,-4,-1,1,Misc,-5,-1,1,Resource
-F1=-2,2,1,-10,-32,1616,853,5,DX9_test.asm
+F1=-2,2,1,-10,-32,1616,853,287,DX9_test.asm
 C1=0
 B1=
 M1=

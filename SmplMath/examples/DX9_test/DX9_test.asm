@@ -52,7 +52,7 @@ WndProc proto hWnd:HWND,uMsg:UINT,wParam:WPARAM,lParam:LPARAM
 ; n = number of hexagons in phi-direction
 ; k = number of hexagons in z-direction
 ; a = side length of hexagon
-create_mash proc uses edi esi ebx n:DWORD,k:DWORD,a:REAL4,phase:REAL4,D3DDevice:PVOID,ppVertexBuffer: ptr PVOID,pn:ptr DWORD
+create_mesh proc uses edi esi ebx n:DWORD,k:DWORD,a:REAL4,phase:REAL4,D3DDevice:PVOID,ppVertexBuffer: ptr PVOID,pn:ptr DWORD
 LOCAL x:REAL4,y:REAL4,z:REAL4,h:REAL4,R:REAL4,alpha:REAL4,phi:REAL4,b:REAL4,z_corr1:REAL4,x_corr:REAL4,z_corr2:REAL4
 LOCAL sinVal:REAL4,cosVal:REAL4,recip_n:REAL4
 LOCAL pBuffer:PVOID
@@ -67,7 +67,7 @@ LOCAL fSlvTLS()
 	;/* we use xmm0-xmm3 to share date between the macro calls: these registers must be non-volatile */
 	fSlvVolatileXmmRegs remove,xmm0,xmm1,xmm2,xmm3
 
-	;/* calcualte some geometric values from input */
+	;/* calculate some geometric values from input */
 	ldl phi = 0
 	fSlv4 y = a*(-0.75*k-1) , h = y/1.2
 	fSlv4 recip_n = rcpss(n)
@@ -161,7 +161,7 @@ LOCAL fSlvTLS()
 	xor esi,esi
 	.while esi < ebx
 
-		;/* use multiple assignments to avoid double calcualtion of abs(cos(...)) */
+		;/* use multiple assignments to avoid double calculation of abs(cos(...)) */
 		fSlv4 	[edi].VERTEX_XYZ_ARGB.x = 0.5*[edi].VERTEX_XYZ_ARGB.x+0.25*[edi].VERTEX_XYZ_ARGB.x*(abs(cos(2*pi/h*[edi].VERTEX_XYZ_ARGB.y+phase))), \
 				[edi].VERTEX_XYZ_ARGB.z = 0.5*[edi].VERTEX_XYZ_ARGB.z+0.25*[edi].VERTEX_XYZ_ARGB.z*(abs(cos(2*pi/h*[edi].VERTEX_XYZ_ARGB.y+phase)))
 
@@ -183,11 +183,11 @@ LOCAL fSlvTLS()
 	
 	ret
 	
-create_mash endp
+create_mesh endp
 
 Render proc uses edi esi ebx hWnd:HWND,n:DWORD,angle:REAL4
 LOCAL fSlvTLS()
-LOCAL world:D3DXMATRIX,m1:DWORD,m2:D3DXMATRIX
+LOCAL world:D3DXMATRIX,m1:D3DXMATRIX,m2:D3DXMATRIX
 LOCAL view:D3DXMATRIX
 LOCAL projection:D3DXMATRIX
 LOCAL v[3]:D3DXVECTOR3
@@ -274,7 +274,7 @@ LOCAL pMem:PVOID
 	fn vf(pD3DDevice,IDirect3DDevice9,SetRenderState),D3DRS_CULLMODE, D3DCULL_NONE	
 	fn vf(pD3DDevice,IDirect3DDevice9,SetRenderState),D3DRS_ZENABLE,FALSE
 
-	fn create_mash,100,30,0.1,0,pD3DDevice,&pVertexBuffer,&n_list
+	fn create_mesh,100,30,0.1,0,pD3DDevice,&pVertexBuffer,&n_list
 	
 	invoke ShowWindow,esi,SW_SHOWNORMAL
 	invoke UpdateWindow,esi	
@@ -307,7 +307,7 @@ LOCAL fSlvTLS()
 		.if pVertexBuffer
 			fn vf(pVertexBuffer,IDirect3DVertexBuffer9,Release)
 		.endif
-		fn create_mash,100,30,0.1,r4: rot_angle*20 ,pD3DDevice,&pVertexBuffer,&n_list
+		fn create_mesh,100,30,0.1,r4: rot_angle*20 ,pD3DDevice,&pVertexBuffer,&n_list
 		invoke InvalidateRect,hWnd,0,0
 	.elseif uMsg == WM_PAINT
 		fn BeginPaint,hWnd,&ps

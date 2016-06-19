@@ -1,7 +1,7 @@
 ;/********************************************************
 ; * This file is part of the SmplMath macros-system.     *
 ; *                                                      *
-; *          Copyright by qWord, 2011/2013               *
+; *          Copyright by qWord, 2011-2014               *
 ; *                                                      *
 ; *          SmplMath.Masm{at}gmx{dot}net                *
 ; *    http://sourceforge.net/projects/smplmath/         *
@@ -32,7 +32,6 @@ FSLV_X86_SSE2_FPU_ENTITY macro code:req,param1,param2
 		ENDIF
 		IF param2
 			fsxsf_compare = -1
-			stcksim_create XMMSTK,%fslv_volatile_xmm_regs
 		ELSE
 			fsxsf_compare = 0
 		ENDIF
@@ -119,13 +118,19 @@ FSLV_X86_SSE2_FPU_ENTITY macro code:req,param1,param2
 endm
 
 ; type: procedure
-; allows to scan all tokens before evaluation begins
-; The impl. below use thes feature to detect XMM register and remove them from the
+; allows to scan all tokens before evaluation begins. If the back end is called in context to a compare operation,
+; the raw input tokens are passed with the flag TMT_TXT.
+; The impl. below use these feature to detect XMM register and remove them from the
 ; virtual register stack.
 FSLV_X86_SSE2_FPU_ENUM_TKN macro flg,tkn:=<>,tkn_flg:=<0>
 	IF flg EQ FSB_ENUM_TKN
 		IF tkn_flg AND TMT_TXT
-			IF @IsXmmReg(<&tkn>)
+			IF @IsTypedXmmReg(<&tkn>,REAL4,REAL8)
+				IF istxr_type EQ -1
+					fslv_glb_error_msg TEXTEQU <[#FS13] invalid typecasted XMM register found: tkn>
+					fslv_glb_error = 1
+					EXITM
+				ENDIF
 				IF @Version GE 800
 					fxsfet_regs TEXTEQU @RemoveArgI(@CatStr(<xmm>,%isxr_index-1),%fxsfet_regs)
 				ELSE
@@ -140,7 +145,6 @@ FSLV_X86_SSE2_FPU_ENUM_TKN macro flg,tkn:=<>,tkn_flg:=<0>
 		IF @GetArgCount(%fxsfet_regs) EQ 0
 			fslv_glb_error_msg TEXTEQU <[#FS4] no free XMM registers: reduce the number of XMM registers that are used as operands>
 			fslv_glb_error = 1
-			stcksim_create XMMSTK,%fslv_volatile_xmm_regs
 		ELSE
 			stcksim_create XMMSTK,%fxsfet_regs
 		ENDIF
@@ -213,7 +217,7 @@ FSLV_X86_SSE2_FPU_CALL_FNC macro fnc_name
 			movss stcksim_get(XMMSTK,0,<name>),REAL4 ptr T_EXPR(<[esp-4]>,<[rsp]>)
 		ELSE
 			fstp REAL8 ptr T_EXPR(<[esp-8]>,<[rsp]>)
-			movlpd stcksim_get(XMMSTK,0,<name>),REAL8 ptr T_EXPR(<[esp-8]>,<[rsp]>)
+			movsd stcksim_get(XMMSTK,0,<name>),REAL8 ptr T_EXPR(<[esp-8]>,<[rsp]>)
 		ENDIF
 	ENDIF
 endm
@@ -312,12 +316,22 @@ FSLV_X86_SSE2_FPU_LOAD_ARG macro tkn,neg_arg:=<0>
 			ENDIF
 		ENDIF
 	ELSE
-		IF @IsXmmReg(<&tkn>)
-			IFDIFI <tkn>,stcksim_get(XMMSTK,0,<name>)
+		IF @IsTypedXmmReg(<&tkn>,REAL4,REAL8)
+			istxr_type = istxr_type*4
+			IF (istxr_type EQ 0) OR (istxr_type EQ fslv_lcl_real_type)
+				IFDIFI istxr_xmm_reg,stcksim_get(XMMSTK,0,<name>)
+					IF fslv_lcl_real_type EQ 4
+						movss stcksim_get(XMMSTK,0,<name>),istxr_xmm_reg
+					ELSE
+						movsd stcksim_get(XMMSTK,0,<name>),istxr_xmm_reg
+					ENDIF
+				ENDIF
+			ELSE
+				; if dest == src --> in place conversion
 				IF fslv_lcl_real_type EQ 4
-					movss stcksim_get(XMMSTK,0,<name>),tkn
+					cvtsd2ss stcksim_get(XMMSTK,0,<name>),istxr_xmm_reg
 				ELSE
-					movsd stcksim_get(XMMSTK,0,<name>),tkn
+					cvtss2sd stcksim_get(XMMSTK,0,<name>),istxr_xmm_reg
 				ENDIF
 			ENDIF
 		ELSE
@@ -356,7 +370,7 @@ FSLV_X86_SSE2_FPU_LOAD_ARG macro tkn,neg_arg:=<0>
 					IF fslv_lcl_real_type EQ 4
 						cvtsd2ss stcksim_get(XMMSTK,0,<name>),fsola_txt
 					ELSE
-						movlpd stcksim_get(XMMSTK,0,<name>),fsola_txt
+						movsd stcksim_get(XMMSTK,0,<name>),fsola_txt
 					ENDIF
 				ELSE
 					fslv_glb_error_msg TEXTEQU <[#FS7] type not supported: &tkn>
@@ -470,7 +484,7 @@ FSLV_X86_SSE2_FPU_REG0_OPRT_RCVAL macro oprt,tkn,neg_tkn
 						movss stcksim_get(XMMSTK,0,<name>),sse2_ss_one
 						divss stcksim_get(XMMSTK,0,<name>),stcksim_get(XMMSTK,1,<name>)
 					ELSE
-						movlpd stcksim_get(XMMSTK,0,<name>),sse2_sd_one
+						movsd stcksim_get(XMMSTK,0,<name>),sse2_sd_one
 						divsd stcksim_get(XMMSTK,0,<name>),stcksim_get(XMMSTK,1,<name>)
 					ENDIF
 					stcksim_xchg XMMSTK,0,1,<name>
@@ -668,7 +682,10 @@ FSLV_X86_SSE2_FPU_REG0_OPRT_MEM macro tkn,oprt,int_type,real_type
 		FSLV_X86_SSE2_FPU_LOAD_ARG <&tkn>,0
 		FSLV_X86_SSE2_FPU_REG1_OPRT_REG0_P <&oprt>
 	ELSE
-		fxsfrom_reg = @IsXmmReg(<tkn>)
+		fxsfrom_reg = @IsTypedXmmReg(<tkn>,REAL4,REAL8)
+		IF istxr_type
+			fxsfrom_txt TEXTEQU istxr_xmm_reg
+		ENDIF
 		IF (real_type EQ 4) OR (fxsfrom_reg NE 0 AND fslv_lcl_real_type EQ 4)
 			IF fslv_lcl_real_type EQ 8
 				stcksim_push XMMSTK
@@ -743,7 +760,10 @@ FSLV_X86_SSE2_FPU_MEM_OPRT_REG0 macro tkn,oprt,int_type,real_type
 		FSLV_X86_SSE2_FPU_LOAD_ARG <&tkn>,0
 		FSLV_X86_SSE2_FPU_REG0_OPRT_REG1_P <&oprt>
 	ELSE
-		fxsfrom_reg = @IsXmmReg(<tkn>)
+		fxsfrom_reg = @IsTypedXmmReg(<tkn>,REAL4,REAL8)
+		IF istxr_type
+			fxsfrom_txt TEXTEQU istxr_xmm_reg
+		ENDIF
 		IF (real_type EQ 4) OR (fxsfrom_reg NE 0 AND fslv_lcl_real_type EQ 4)
 			IF fslv_lcl_real_type EQ 8
 				stcksim_push XMMSTK
@@ -840,7 +860,7 @@ endm
 ;   
 ;	bRetValue:
 ;		If this value is not zero, this macro is called in context of a function-like macro: @fSlv4/8/I()
-;		In this case, the macro must store the result in a variable, which can be obtained by FSBE_ALLOC_RETVAL().
+;		In this case the macro must store the result in a variable, which can be obtained by FSBE_ALLOC_RETVAL().
 ;		The obtained variable is of the type described through the paramters retval_int/real_type. After storing,
 ;       the stack must be poped.
 ;				
@@ -850,7 +870,7 @@ endm
 ;
 ;   fCopy: This parameter is only used, if the Entity returns TRUE for FSEN_COPY_SUPPORTED.
 ;          If (fCopy&1) , the expression to solve contains only one memory or constant operand.
-;              In that case, the value is directly pass to the macro (->CpySrc = mem. operand) and not load on the stack. The macro must
+;              In that case the value is directly pass to the macro (->CpySrc = mem. operand) and not load on the stack. The macro must
 ;              determine the type of CpySrc itself.
 ;          If (fCopy&2), CpySrc is a register index.
 ;          If (fCopy&4), dest is a register index. The paramters dest_int/real_type are zero.
@@ -876,17 +896,64 @@ FSLV_X86_SSE2_FPU_ASSIGN_DEST macro dest,dest_int_type,dest_real_type,bRetValue,
 LOCAL retval
 	fxsfad_cpy_ld = 0
 	IF fCopy
-		IF @IsXmmReg(CpySrc)
-			stcksim_push XMMSTK
-			stcksim_set XMMSTK,0,<name>,<&CpySrc>
+		
+		fxsfad_cs_ir = @IsTypedXmmReg(CpySrc,REAL4,REAL8)
+		fxsfad_cs TEXTEQU istxr_xmm_reg
+		IF istxr_type
+			fxsfad_cs_type = istxr_type*4
 		ELSE
-			IF @IsXmmReg(dest) NE 0 AND bRetValue EQ 0
+			fxsfad_cs_type = fslv_lcl_real_type
+		ENDIF
+		
+		fxsfad_d_ir = @IsTypedXmmReg(dest,REAL4,REAL8)
+		fxsfad_d TEXTEQU istxr_xmm_reg
+		fxsfad_d_type = istxr_type
+		IF istxr_type
+			fxsfad_d_type = istxr_type*4
+		ELSE
+			fxsfad_d_type = fslv_lcl_real_type
+		ENDIF
+
+		IF fxsfad_cs_ir NE 0 AND fxsfad_d_ir NE 0 AND fxsfad_d_type NE 0 AND bRetValue EQ 0 
+			IF fxsfad_d_type EQ fxsfad_cs_type
+				IFDIFI fxsfad_d,fxsfad_cs
+					IF fxsfad_d_type EQ 8
+						movsd fxsfad_d,fxsfad_cs
+					ELSE
+						movss fxsfad_d,fxsfad_cs
+					ENDIF
+				ENDIF
+			ELSEIF fxsfad_d_type EQ 8
+				cvtss2sd fxsfad_d,fxsfad_cs
+			ELSEIF fxsfad_d_type EQ 4
+				cvtsd2ss fxsfad_d,fxsfad_cs
+			ENDIF
+			EXITM <>
+		ELSEIF fxsfad_cs_ir
+			fxsfad_cs_isvr = @IsVolatileXmmReg(%fxsfad_cs)
+			IF fxsfad_cs_type EQ dest_real_type AND fxsfad_d_ir EQ 0 AND bRetValue EQ 0
+					IF fxsfad_cs_type EQ 8
+						movsd dest,fxsfad_cs
+					ELSE
+						movss dest,fxsfad_cs
+					ENDIF
+					EXITM <>
+			ELSEIF fxsfad_cs_type EQ fslv_lcl_real_type AND fxsfad_cs_isvr NE 0
 				stcksim_push XMMSTK
-				stcksim_set XMMSTK,0,<name>,<&dest>
+				stcksim_set XMMSTK,0,<name>,%fxsfad_cs
+			ELSE
+				FSLV_X86_SSE2_FPU_LOAD_ARG <&CpySrc>,0
+			ENDIF
+		ELSE
+			IF fxsfad_d_ir NE 0 AND bRetValue EQ 0 AND fxsfad_d_type EQ fslv_lcl_real_type
+				stcksim_push XMMSTK
+				stcksim_set XMMSTK,0,<name>,%fxsfad_d
 				stcksim_pop XMMSTK
-				FSLV_X86_SSE2_FPU_LOAD_ARG <CpySrc>,0
+				FSLV_X86_SSE2_FPU_LOAD_ARG <&CpySrc>,0
 				stcksim_pop XMMSTK
 				EXITM <>
+			ELSEIF fxsfad_d_ir NE 0
+				FSLV_X86_SSE2_FPU_LOAD_ARG <&CpySrc>,0
 			ELSE
 				IF (type dest NE type CpySrc) OR ((fslv_volatile_gprs AND FSVGPR_EAX) EQ 0) OR bRetValue NE 0
 					FSLV_X86_SSE2_FPU_LOAD_ARG <CpySrc>,0
@@ -975,7 +1042,19 @@ LOCAL retval
 				cdq
 			ENDIF
 		ELSE
-			fxsfas_xmm_reg = @IsXmmReg(<&dest>)
+			;fxsfas_xmm_reg = @IsTypedXmmReg(<&dest>,REAL8,REAL4)
+			fxsfad_d_ir = @IsTypedXmmReg(dest,REAL4,REAL8)
+			fxsfad_d TEXTEQU istxr_xmm_reg
+			fxsfad_d_type = istxr_type
+			IF istxr_type
+				fxsfad_d_type = istxr_type*4
+			ELSE
+				fxsfad_d_type = fslv_lcl_real_type
+			ENDIF
+			IFE fxsfad_d_ir
+				fxsfad_d TEXTEQU <dest>
+			ENDIF
+			
 			IF dest_int_type NE 0
 				IFE fslv_volatile_gprs AND FSVGPR_EAX
 					mov T_EXPR(<DWORD ptr [esp-4]>,<QWORD ptr [rsp]>),T_REG(eax)
@@ -1002,26 +1081,26 @@ LOCAL retval
 					EXITM <dest>
 				ENDIF
 			ELSE
-				IF (dest_real_type EQ 4) OR (fxsfas_xmm_reg NE 0 AND fslv_lcl_real_type EQ 4)
+				IF (dest_real_type EQ 4) OR (fxsfad_d_ir NE 0 AND fxsfad_d_type EQ 4)
 					IF fslv_lcl_real_type EQ 4
-						IFDIFI <dest>,stcksim_get(XMMSTK,0,<name>)
-							movss dest,stcksim_get(XMMSTK,0,<name>)
+						IFDIFI fxsfad_d,stcksim_get(XMMSTK,0,<name>)
+							movss fxsfad_d,stcksim_get(XMMSTK,0,<name>)
 						ENDIF
 					ELSE
 						cvtsd2ss stcksim_get(XMMSTK,0,<name>),stcksim_get(XMMSTK,0,<name>)
-						IFDIFI <dest>,stcksim_get(XMMSTK,0,<name>)
-							movss dest,stcksim_get(XMMSTK,0,<name>)
+						IFDIFI fxsfad_d,stcksim_get(XMMSTK,0,<name>)
+							movss fxsfad_d,stcksim_get(XMMSTK,0,<name>)
 						ENDIF
 					ENDIF
-				ELSEIF (dest_real_type EQ 8)  OR (fxsfas_xmm_reg NE 0 AND fslv_lcl_real_type EQ 8)
+				ELSEIF (dest_real_type EQ 8)  OR (fxsfad_d_ir NE 0 AND fxsfad_d_type EQ 8)
 					IF fslv_lcl_real_type EQ 8
-						IFDIFI <dest>,stcksim_get(XMMSTK,0,<name>)
-							movsd dest,stcksim_get(XMMSTK,0,<name>)
+						IFDIFI fxsfad_d,stcksim_get(XMMSTK,0,<name>)
+							movsd fxsfad_d,stcksim_get(XMMSTK,0,<name>)
 						ENDIF
 					ELSE
 						cvtss2sd stcksim_get(XMMSTK,0,<name>),stcksim_get(XMMSTK,0,<name>)
-						IFDIFI <dest>,stcksim_get(XMMSTK,0,<name>)
-							movsd dest,stcksim_get(XMMSTK,0,<name>)
+						IFDIFI fxsfad_d,stcksim_get(XMMSTK,0,<name>)
+							movsd fxsfad_d,stcksim_get(XMMSTK,0,<name>)
 						ENDIF
 					ENDIF
 				ELSE
@@ -1030,7 +1109,7 @@ LOCAL retval
 				ENDIF
 				IF bRetValue NE 0 AND dest_real_type EQ retval_real_type
 					stcksim_pop XMMSTK
-					EXITM <dest>
+					EXITM fxsfad_d
 				ENDIF
 			ENDIF
 		ENDIF
@@ -1148,7 +1227,7 @@ FSLV_X86_SSE2_FPU_CMP macro cmpType,cmpSuffix,cParam,bool_byte,MemParam
 		IF @WordSize EQ 8
 			add rsp,2*8
 			mov rax,[rsp+2*8]
-			mov rdx.[rsp+3*8]
+			mov rdx,[rsp+3*8]
 		ENDIF
 	ELSEIFIDNI <&cmpType>,<approx. eq.>
 		fsxsfc_arg TEXTEQU <&MemParam>
@@ -1160,7 +1239,7 @@ FSLV_X86_SSE2_FPU_CMP macro cmpType,cmpSuffix,cParam,bool_byte,MemParam
 		ENDIF
 		
 		IFB fsxsfc_arg
-			FSLV_X86_SSE2_FPU_LOAD_REG,0,0
+			FSLV_X86_SSE2_FPU_LOAD_REG 0,0
 			fsxsfc_factor TEXTEQU <&cParam>
 			IFNB <cParam>
 				IF fslv_lcl_real_type NE @IsRealType(<&cParam>) 
@@ -1185,7 +1264,7 @@ FSLV_X86_SSE2_FPU_CMP macro cmpType,cmpSuffix,cParam,bool_byte,MemParam
 			stcksim_pop XMMSTK
 			stcksim_pop XMMSTK
 		ELSE
-			FSLV_X86_SSE2_FPU_LOAD_ARG,%fsxsfc_arg,0
+			FSLV_X86_SSE2_FPU_LOAD_ARG %fsxsfc_arg,0
 			fsxsfc_factor TEXTEQU <&cParam>
 			IFNB <cParam>
 				IF fslv_lcl_real_type NE @IsRealType(<&cParam>)

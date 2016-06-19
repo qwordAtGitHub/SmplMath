@@ -3,12 +3,11 @@ Version=3000
 [Project]
 Assembler=jwasm
 Group=2,-1,0,1,FncDrawCtrl64,-2,-1,1,Assembly,-3,-1,1,Include,-4,-1,1,Misc,-5,-1,1,Resource
-F1=-2,2,1,22,22,600,400,418,FncDrawCtrl64.asm
-F2=-3,0,1,44,44,600,400,218,FncDrawCtrl64.inc
-F3=-3,0,1,66,66,600,400,464,gdip.inc
-Path=C:\RadAsm3
-F4=-3,0,1,125,125,1424,546,1427,GdiPlusFlat.inc
-Open=0,1,2,3,4,5
+F1=-2,2,1,22,22,600,400,0,FncDrawCtrl64.asm
+F2=-3,0,1,44,44,600,400,0,FncDrawCtrl64.inc
+F3=-3,0,1,-10,-32,1645,868,0,gdip.inc
+F4=-3,0,1,-10,-32,1645,868,1427,GdiPlusFlat.inc
+Open=0,1,2,5
 Api=
 C4=0
 B4=

@@ -1,7 +1,7 @@
 ;/********************************************************
 ; * This file is part of the SmplMath macros-system.     *
 ; *                                                      *
-; *          Copyright by qWord, 2011/2013               *
+; *          Copyright by qWord, 2011-2014               *
 ; *                                                      *
 ; *          SmplMath.Masm{at}gmx{dot}net                *
 ; *    http://sourceforge.net/projects/smplmath/         *
@@ -43,6 +43,8 @@ ll_fSlv macro SlvPath,SubExpr,bFunction:=<0>,retval_int_type:=<0>,retval_real_ty
 		fslv_glb_error_msg TEXTEQU <[#CG22] invalid back end (nonsense response to: FSEN_NO_INT/REAL_CONST)>
 		fslv_glb_error = 1
 		EXITM
+	ELSEIFE ((fslv_glb_flags AND FSF_NO_INT_CONSTS) NE 0) AND (lfs_no_real_consts NE 0)
+		lfs_no_int_consts = lfs_no_int_consts OR ((fslv_glb_flags AND FSF_NO_INT_CONSTS) NE 0)
 	ENDIF
 	
 	;----------------------------
@@ -88,6 +90,9 @@ ll_fSlv macro SlvPath,SubExpr,bFunction:=<0>,retval_int_type:=<0>,retval_real_ty
 	ENDIF
 	IFNB FSBE_ENUM_TKN
 		FSBE_PROC %FSBE_ENUM_TKN,%FSB_ENUM_END,<>,0
+	ENDIF
+	IF fslv_glb_error
+		EXITM
 	ENDIF
 	FSO_N_STACK = FSBE_FNC(%FSBE_ENTITY,%FSEN_MAX_STACK)
 	IF FSO_N_STACK LE 0
@@ -1140,13 +1145,13 @@ fscc_nc_REAL10 = 0 ;
 	fscc_type TEXTEQU <&_type>
 	fscc_cntr = 0
 	fscc_match = 0
-	IF lfs_no_int_consts NE 0 AND @InStr(1,<SWORD SDWORD SQWORD>,%fscc_type)
+	IF lfs_no_int_consts NE 0 AND @InStr(1,<SWORD SDWORD SQWORD>,%fscc_type) NE 0
 		IF fslv_lcl_real_type EQ 8
 			;IF value LT -9007199254740992 OR value GT 9007199254740992
 			;	.err <integer value maybe not exact representable as REAL8: value>
 			;ELSE
 				fscc_type TEXTEQU <REAL8>
-				fscc_value TEXTEQU fscc_value,<.0>
+				fscc_value TEXTEQU @CatStr(%fscc_value+0),<.0>
 			;ENDIF
 		ELSEIF fslv_lcl_real_type EQ 4
 			IF value LT -16777216 OR value GT 16777216
@@ -1155,7 +1160,7 @@ fscc_nc_REAL10 = 0 ;
 				EXITM fslv_retval@error(REAL4)
 			ELSE
 				fscc_type TEXTEQU <REAL4>
-				fscc_value TEXTEQU fscc_value,<.0>
+				fscc_value TEXTEQU @CatStr(%fscc_value+0),<.0>
 			ENDIF
 		ELSE
 			fslv_glb_error_msg TEXTEQU <[#CG11] integer to REAL10 not implemented>

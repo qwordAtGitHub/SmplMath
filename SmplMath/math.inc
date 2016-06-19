@@ -1,7 +1,7 @@
 ;/********************************************************
 ; * This file is part of the SmplMath macros-system.     *
 ; *                                                      *
-; *          Copyright by qWord, 2011/2013               *
+; *          Copyright by qWord, 2011-2014               *
 ; *                                                      *
 ; *          SmplMath.Masm{at}gmx{dot}net                *
 ; *    http://sourceforge.net/projects/smplmath/         *
@@ -16,7 +16,7 @@ IFDEF __SMPLMATH__
 	.err <SmplMath: double inclusion of math.inc>
 	fslv_glb_error = 1
 ELSE
-	__SMPLMATH__ TEXTEQU <020000>
+	__SMPLMATH__ TEXTEQU <020001>
 ENDIF
 
 IF @WordSize EQ 4

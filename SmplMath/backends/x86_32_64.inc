@@ -1,7 +1,7 @@
 ;/********************************************************
 ; * This file is part of the SmplMath macros-system.     *
 ; *                                                      *
-; *          Copyright by qWord, 2011/2013               *
+; *          Copyright by qWord, 2011-2014               *
 ; *                                                      *
 ; *          SmplMath.Masm{at}gmx{dot}net                *
 ; *    http://sourceforge.net/projects/smplmath/         *
@@ -15,13 +15,15 @@ FSBE_REGISTER_BACKEND <FSLV_X86_ENTITY>
 
 FSLV_X86_ENTITY macro code:req,param1,param2
 	IF code EQ FSEN_INIT
-		IFNDEF fsxe_IBEI
-			echo ----------------------------------------------------------
-			echo
-			echo WARNING: the Integer back end should not be used serious.
-			echo
-			echo ----------------------------------------------------------
-			fsxe_IBEI = 0
+		IFE FSLV_SUPPRESS_ALL_WARNINGS
+			IFNDEF fsxe_IBEI
+				echo -----------------------------------------------------------
+				echo
+				echo WARNING: the Integer back end should not be used seriously.
+				echo
+				echo -----------------------------------------------------------
+				fsxe_IBEI = 0
+			ENDIF
 		ENDIF
 		IF fslv_lcl_int_type GT @WordSize
 			fslv_glb_error_msg TEXTEQU <The current back end does not support QWORDs - change the local integer size by using the Attribute i4>
@@ -456,7 +458,7 @@ FSLV_X86_REG0_OPRT_MEM macro tkn,oprt,int_type,real_type
 		ENDIF
 	ELSEIFIDN <&oprt>,<->
 		IF int_type EQ @WordSize
-			mov T_REG(eax),tkn
+			sub T_REG(eax),tkn
 		ELSE
 			MOVSX_EX T_REG(edx),tkn
 			sub T_REG(eax),T_REG(edx)

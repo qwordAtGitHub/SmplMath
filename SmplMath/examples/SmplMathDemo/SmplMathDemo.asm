@@ -1,11 +1,11 @@
 .nolist
-include masm32rt.inc
+include \masm32\include\masm32rt.inc
 .686
 .mmx
 .xmm
 
-include gdiplus.inc
-includelib gdiplus.lib
+include \masm32\include\gdiplus.inc
+includelib \masm32\lib\gdiplus.lib
 
 include \macros\smplmath\math.inc
 include \macros\smplmath\expressions.inc
