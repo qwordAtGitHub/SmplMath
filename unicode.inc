@@ -1,418 +1,279 @@
 ; by qWord @ www.masmforum.com
 
-;-------------------------------------------------------------
-; creates an unicode string in current segment
-; 	lbl:	 [optional] name of string 
-; 	args:	 one or more string literals enclosed
-;			 either by double or by single quotes.
-;			 Numeric values are also accepted, blank 
-;			 arguments forced an error. The maximal number
-;			 of characters is something about 200.
-;
-;	remarks: an termination zero must add by user!
-;			 Named strings can be used with the SIZEOF operator.
-;
-;			 This macro won't work with angle brackets and
-;			 exclamation marks. If these char. are needed use the
-;			 CWSZ-macro. 
-;   example:
-;	   WSTR wszXYZ,'"double quote"',10,13,"'single quote'",0
-;-------------------------------------------------------------
-WSTR macro lbl,args:VARARG
-	IFNDEF wsz_lbl_cntr
-		wsz_lbl_cntr = 0
-	ENDIF
-	IFB <&lbl>
-		wsz_lbl TEXTEQU <anonym_WSTR_>,%wsz_lbl_cntr
-		wsz_lbl_cntr = wsz_lbl_cntr + 1
-	ELSE
-		wsz_lbl TEXTEQU <&lbl>
-	ENDIF
-	wsz_line = 1
-	wsz_line_1 TEXTEQU <>
-	wsz_line_size = 0
-	wsz_size = 0
-	wsz_flg = 0
-	wsz_iarg = 1
-	
-%	FOR _arg,<&args>
-		wsz_flg = 0
-		FORC char,<&_arg>
-			IF wsz_flg NE 0
-				wsz_pos INSTR 1,<"'>,<&char>
-				IF wsz_pos EQ wsz_flg
-					EXITM
-				ELSE
-					@CatStr(<wsz_line_>,%wsz_line) TEXTEQU @CatStr(%@CatStr(<wsz_line_>,%wsz_line)),<,>,wsz_quote,<&char>,wsz_quote
-					IF wsz_line_size GE 160
-						wsz_line = wsz_line + 1
-						wsz_line_size = 0
-						@CatStr(<wsz_line_>,%wsz_line) TEXTEQU <>
-					ELSE
-						wsz_line_size = wsz_line_size + 4
-					ENDIF
-					wsz_size = wsz_size + 1
-				ENDIF
-			ELSE
-				wsz_flg INSTR 1,<"'0123456789>,<&char>
-				IF wsz_flg NE 1 AND wsz_flg NE 2
-					EXITM
-				ENDIF
-				wsz_quote TEXTEQU <&char>
-				wsz_arg_size SIZESTR <&_arg>
-				wsz_char SUBSTR <&_arg>,wsz_arg_size,1
-				IFDIF wsz_char,wsz_quote
-					wsz_flg=0
-					EXITM
-				ENDIF
-			ENDIF
-		ENDM
-		IFE wsz_flg
-			EXITM
-		ELSEIF wsz_flg GT 2
-			@CatStr(<wsz_line_>,%wsz_line) TEXTEQU @CatStr(%@CatStr(<wsz_line_>,%wsz_line)),<,>,<&_arg>
-			IF wsz_line_size GE 160
-				wsz_line = wsz_line + 1
-				wsz_line_size = 0
-				@CatStr(<wsz_line_>,%wsz_line) TEXTEQU <>
-			ELSE
-				wsz_line_size = wsz_line_size + @SizeStr(<&_arg>)
-			ENDIF
-			wsz_size = wsz_size + 1
-		ENDIF		
-		wsz_iarg = wsz_iarg + 1
-	ENDM
-	IFE wsz_flg
-	%	.err <invalid string specifier : argument : @CatStr(%wsz_iarg)>
-		EXITM
-	ELSEIFE wsz_line_size
-		wsz_line = wsz_line - 1
-	ENDIF
-	
-	align 2
-	IF wsz_line EQ 1
-		wsz_lbl WORD @SubStr(%wsz_line_1,2);,0
-	ELSE
-		IFNB <&lbl>
-		%	wsz_tmpS_&wsz_lbl struct
-				wsz_lbl WORD wsz_size dup (?)
-		%	wsz_tmpS_&wsz_lbl ends
-		%	&wsz_lbl LABEL wsz_tmpS_&wsz_lbl
-		ELSE
-			wsz_lbl LABEL WORD
-		ENDIF
-		wsz_cntr = 1
-		REPEAT wsz_line
-			WORD @SubStr(%@CatStr(<wsz_line_>,%wsz_cntr),2)
-			wsz_cntr = wsz_cntr + 1
-		ENDM
-		;WORD 0
-	ENDIF
+;/*****************************************************************/
+;/*             WSTR - macro procedure                            */
+;/* This macro creates a Unicode string in the current segment    */
+;/* Parameters:                                                   */
+;/*    lbl:    [optional] name of string                          */
+;/*    args:   one ore more string literals, either enclosed by   */
+;/*            single quotation marks or by double quotes.        */
+;/*            Constants can also be used, blank arguments        */
+;/*            force an error. The maximal number of characters   */
+;/*            is something about 240.                            */
+;/*                                                               */
+;/* Remarks:   A termination zero must add by user!               */
+;/*            Named strings can be used with the SIZEOF and      */
+;/*            LENGTHOF operator. This macro wont work with       */
+;/*            angle brackets and exclemation marks.              */
+;/* Example:                                                      */
+;/*          WSTR myStr, "my string",13,10,'"quoted"',0           */
+;/*                                                  qWord, 2011  */
+;/*****************************************************************/
+WSTR MACRO lbl,args:VARARG
+    
+    IFNDEF ucstr_lbl_cntr
+        ucstr_lbl_cntr = 0
+    ENDIF
+    
+    IFB <&lbl>
+        ucstr_lbl TEXTEQU <$$_WSTR_>,%ucstr_lbl_cntr
+        ucstr_lbl_cntr = ucstr_lbl_cntr + 1
+    ELSE
+        ucstr_lbl TEXTEQU <&lbl>
+    ENDIF
+
+    ucstr_size = 0
+    ucstr_flg = 0  ; 0 => invalid argument
+                   ; 1 => double quotes are used
+                   ; 2 => single quotation marks are used
+                   ; 3 => constant 
+    ucstr_iarg = 1
+
+    FOR _arg,<&args>
+        ucstr_flg = 0
+        FORC char,<&_arg>
+            IF ucstr_flg NE 0
+                ucstr_pos INSTR 1,<"'>,<&char>
+                IF ucstr_pos EQ ucstr_flg
+                    EXITM
+                ENDIF
+                ucstr_size = ucstr_size + 1
+            ELSE
+                ucstr_flg INSTR 1,<"'>,<&char>
+                IFE ucstr_flg
+                    IF (OPATTR _arg) AND 100y
+                        ucstr_flg = 3
+                    ENDIF
+                    EXITM
+                ENDIF
+            ENDIF
+        ENDM
+        IF ucstr_flg EQ 3
+            ucstr_size = ucstr_size + 1
+        ELSEIFE ucstr_flg
+            EXITM
+        ENDIF
+        ucstr_iarg = ucstr_iarg + 1     
+    ENDM
+    IFE ucstr_flg
+    %   .err <invalid string specifier : argument : @CatStr(%ucstr_iarg)>
+        EXITM
+    ENDIF
+
+    align 2
+    ucstr_lbl WORD ucstr_size dup (?)
+    org $-ucstr_size*2
+    
+    FOR _arg,<&args>
+        ucstr_flg = 0
+        FORC char,<&_arg>
+            IF ucstr_flg NE 0
+                ucstr_pos INSTR 1,<"'>,<&char>
+                IF ucstr_pos EQ ucstr_flg
+                    EXITM
+                ELSE
+                    ucstr_char CATSTR <dw >,ucstr_quote,<&char>,ucstr_quote
+                    ucstr_char
+                ENDIF
+            ELSE
+                ucstr_flg INSTR 1,<"'>,<&char>
+                IFE ucstr_flg
+                    IF (OPATTR _arg) AND 100y
+                        ucstr_flg = 3
+                    ENDIF
+                    EXITM
+                ENDIF
+                ucstr_quote TEXTEQU <&char>
+            ENDIF
+        ENDM
+        IF ucstr_flg EQ 3
+            dw _arg
+        ELSEIFE ucstr_flg
+            EXITM
+        ENDIF
+        ucstr_iarg = ucstr_iarg + 1     
+    ENDM
+
 endm
 
-
-
-;--------------------------------------
-;
-; function version of WSZ. 
-; returns an OFFSET to anonym string.
-;
-;--------------------------------------
-wsz$ macro args:VARARG
-	IFNDEF wsz_lbl_cntr
-		wsz_lbl_cntr = 0
-	ENDIF
-	wsz_lbl TEXTEQU <anonym_WSTR_>,%wsz_lbl_cntr
-	wsz_lbl_cntr = wsz_lbl_cntr + 1
-
-	wsz_line = 1
-	wsz_line_1 TEXTEQU <>
-	wsz_line_size = 0
-	wsz_flg = 0
-	wsz_iarg = 1
-	
-%	FOR _arg,<&args>
-		wsz_flg = 0
-		FORC char,<&_arg>
-			IF wsz_flg NE 0
-				wsz_pos INSTR 1,<"'>,<&char>
-				IF wsz_pos EQ wsz_flg
-					EXITM
-				ELSE
-					@CatStr(<wsz_line_>,%wsz_line) TEXTEQU @CatStr(%@CatStr(<wsz_line_>,%wsz_line)),<,>,wsz_quote,<&char>,wsz_quote
-					IF wsz_line_size GE 160
-						wsz_line = wsz_line + 1
-						wsz_line_size = 0
-						@CatStr(<wsz_line_>,%wsz_line) TEXTEQU <>
-					ELSE
-						wsz_line_size = wsz_line_size + 4
-					ENDIF
-				ENDIF
-			ELSE
-				wsz_flg INSTR 1,<"'0123456789>,<&char>
-				IF wsz_flg NE 1 AND wsz_flg NE 2
-					EXITM
-				ENDIF
-				wsz_quote TEXTEQU <&char>
-				wsz_arg_size SIZESTR <&_arg>
-				wsz_char SUBSTR <&_arg>,wsz_arg_size,1
-				IFDIF wsz_char,wsz_quote
-					wsz_flg=0
-					EXITM
-				ENDIF
-			ENDIF
-		ENDM
-		IFE wsz_flg
-			EXITM
-		ELSEIF wsz_flg GT 2
-			@CatStr(<wsz_line_>,%wsz_line) TEXTEQU @CatStr(%@CatStr(<wsz_line_>,%wsz_line)),<,>,<&_arg>
-			IF wsz_line_size GE 160
-				wsz_line = wsz_line + 1
-				wsz_line_size = 0
-				@CatStr(<wsz_line_>,%wsz_line) TEXTEQU <>
-			ELSE
-				wsz_line_size = wsz_line_size + @SizeStr(<&_arg>)
-			ENDIF
-		ENDIF		
-		wsz_iarg = wsz_iarg + 1
-	ENDM
-	IFE wsz_flg
-	%	.err <invalid string specifier : argument : @CatStr(%wsz_iarg)>
-		EXITM <0>
-	ELSEIFE wsz_line_size
-		wsz_line = wsz_line - 1
-	ENDIF
-	.data
-		align 2
-	%	&wsz_lbl LABEL WORD
-		wsz_cntr = 1
-		REPEAT wsz_line
-			WORD @SubStr(%@CatStr(<wsz_line_>,%wsz_cntr),2)
-			wsz_cntr = wsz_cntr + 1
-		ENDM
-		WORD 0
-	.code
-%	EXITM <OFFSET &wsz_lbl> 
+;/***************************************************/
+;/*               wsz$ , macro function             */
+;/* This macro is the function-version of WSTR.     */
+;/* In contrast to WSTR, the created string is      */
+;/* zero terminated. The macro assumes to be called */
+;/* from the .code-section and places the string    */
+;/* in the .data-section.                           */
+;/* Example:                                        */
+;/*      mov esi,wsz$("my string",13,10,'xxyz')     */
+;/*                                    qWord, 2011  */
+;/***************************************************/
+wsz$ MACRO args:VARARG
+    .data
+        UCSTR ,args,0
+    .code
+    ucsz_retval TEXTEQU <OFFSET >,ucstr_lbl
+    EXITM ucsz_retval
 endm
 
-;-------------------------------------------------
-; creates an unicode string. This macro works 
-; the same way like WSTR, but adds support for
-; escape sequences:
-; \\ :	"\"
-; \t :	tab	
-; \n :	new line
-; \x :	"!"
-; \a :	"("
-; \b :	")"
-; \l :	"<"
-; \r :	">"
-; \q :	double quote '"'
-;-------------------------------------------------
-CWSTR macro lbl,args:VARARG
-	IFNDEF wsz_lbl_cntr
-		wsz_lbl_cntr = 0
-	ENDIF
-	IFB <&lbl>
-		wsz_lbl TEXTEQU <anonym_WSTR_>,%wsz_lbl_cntr
-		wsz_lbl_cntr = wsz_lbl_cntr + 1
-	ELSE
-		wsz_lbl TEXTEQU <&lbl>
-	ENDIF
-	wsz_line = 1
-	wsz_line_1 TEXTEQU <>
-	wsz_line_size = 0
-	wsz_size = 0
-	wsz_flg = 0
-	wsz_iarg = 1
-	wsz_esc = 0
-	
-	FOR _arg,<&args>
-		wsz_flg = 0
-		FORC char,<&_arg>
-			IF wsz_flg NE 0
-				wsz_pos INSTR 1,<"'\>,<&char>
-				IF wsz_pos EQ wsz_flg
-					EXITM
-				ELSEIF wsz_pos EQ 3 AND wsz_esc EQ 0
-					wsz_esc = 1
-				ELSE
-					wsz_char TEXTEQU wsz_quote,<&char>,wsz_quote
-					IF wsz_esc
-						wsz_pos INSTR 1,<\ablrxqtn>,<&char>
-						IFE wsz_pos
-							wsz_flg=0
-							EXITM
-						ENDIF
-						wsz_char SUBSTR <  5ch28h29h3ch3eh21h22h09h0ah,0dh>,wsz_pos*3,3+4*(wsz_pos/9)
-						wsz_size = wsz_size + wsz_pos/9
-						wsz_esc = 0
-					ENDIF
-					@CatStr(<wsz_line_>,%wsz_line) TEXTEQU @CatStr(%@CatStr(<wsz_line_>,%wsz_line)),<,>,wsz_char
-					IF wsz_line_size GE 160
-						wsz_line = wsz_line + 1
-						wsz_line_size = 0
-						@CatStr(<wsz_line_>,%wsz_line) TEXTEQU <>
-					ELSE
-						wsz_pos SIZESTR wsz_char
-						wsz_line_size = wsz_line_size + wsz_pos + 1
-					ENDIF
-					wsz_size = wsz_size + 1
-				ENDIF
-			ELSE
-				wsz_flg INSTR 1,<"'0123456789>,<&char>
-				IF wsz_flg NE 1 AND wsz_flg NE 2
-					EXITM
-				ENDIF
-				wsz_quote TEXTEQU <&char>
-				wsz_arg_size SIZESTR <&_arg>
-				wsz_char SUBSTR <&_arg>,wsz_arg_size,1
-				IFDIF wsz_char,wsz_quote
-					wsz_flg=0
-					EXITM
-				ENDIF
-			ENDIF
-		ENDM
-		IF wsz_flg EQ 0 OR wsz_esc
-			EXITM
-		ELSEIF wsz_flg GT 2
-			@CatStr(<wsz_line_>,%wsz_line) TEXTEQU @CatStr(%@CatStr(<wsz_line_>,%wsz_line)),<,>,<&_arg>
-			IF wsz_line_size GE 160
-				wsz_line = wsz_line + 1
-				wsz_line_size = 0
-				@CatStr(<wsz_line_>,%wsz_line) TEXTEQU <>
-			ELSE
-				wsz_line_size = wsz_line_size + @SizeStr(<&_arg>)
-			ENDIF
-			wsz_size = wsz_size + 1
-		ENDIF		
-		wsz_iarg = wsz_iarg + 1
-	ENDM
-	IF wsz_flg EQ 0 OR wsz_esc NE 0
-		IF wsz_esc
-		%	.err <invalid escape sequence : argument : @CatStr(%wsz_iarg)>
-		ELSE
-		%	.err <invalid string specifier : argument : @CatStr(%wsz_iarg)>
-		ENDIF
-		EXITM
-	ELSEIFE wsz_line_size
-		wsz_line = wsz_line - 1
-	ENDIF
-	
-	align 2
-	IF wsz_line EQ 1
-		wsz_lbl WORD @SubStr(%wsz_line_1,2);,0
-	ELSE
-		IFNB <&lbl>
-		%	wsz_tmpS_&wsz_lbl struct
-				wsz_lbl WORD wsz_size dup (?)
-		%	wsz_tmpS_&wsz_lbl ends
-		%	&wsz_lbl LABEL wsz_tmpS_&wsz_lbl
-		ELSE
-			wsz_lbl LABEL WORD
-		ENDIF
-		wsz_cntr = 1
-		REPEAT wsz_line
-			WORD @SubStr(%@CatStr(<wsz_line_>,%wsz_cntr),2)
-			wsz_cntr = wsz_cntr + 1
-		ENDM
-		;WORD 0
-	ENDIF
+;/*****************************************************************/
+;/*             WCSTR - macro procedure                           */
+;/* This macro creates a Unicode string in the current segment    */
+;/* This macro is identically to the WSTR-macro, except, that it  */
+;/* adds support for some escape sequences:                       */
+;/*     \\  ->  "\"                                               */
+;/*     \t  ->  tab                                               */
+;/*     \n  ->  new line (13,10)                                  */
+;/*     \x  ->  "!"                                               */
+;/*     \a  ->  "("                                               */
+;/*     \b  ->  ")"                                               */
+;/*     \l  ->  "<"                                               */
+;/*     \r  ->  ">"                                               */
+;/*     \p  ->  "%"                                               */
+;/*     \A  ->  "&"                                               */
+;/*     \q  ->  double quote '"'                                  */
+;/*     \0  ->  zero-word                                         */
+;/*                                                               */
+;/* Example:                                                      */
+;/*       WCSTR myStr, "line 1\nline2\nI'm here\x",0              */
+;/*                                                  qWord, 2011  */
+;/*****************************************************************/
+WCSTR MACRO lbl,args:VARARG
+
+    IFNDEF uccstr_lbl_cntr
+        uccstr_lbl_cntr = 0
+    ENDIF
+    IFB <&lbl>
+        uccstr_lbl TEXTEQU <anonym_WSTR_>,%uccstr_lbl_cntr
+        uccstr_lbl_cntr = uccstr_lbl_cntr + 1
+    ELSE
+        uccstr_lbl TEXTEQU <&lbl>
+    ENDIF
+
+    uccstr_size = 0
+    uccstr_flg = 0
+    uccstr_iarg = 1
+    uccstr_esc = 0
+    FOR _arg,<args>
+        uccstr_flg = 0
+        FORC char,<&_arg>
+            IF uccstr_flg NE 0
+                uccstr_pos INSTR 1,<"'\>,<&char>
+                IF uccstr_pos EQ uccstr_flg
+                    EXITM
+                ELSEIF uccstr_pos EQ 3 AND uccstr_esc EQ 0
+                uccstr_esc = 1
+                ELSE
+                    IF uccstr_esc
+                        uccstr_pos INSTR 1,<\0ablrxqtpAn>,<&char>
+                        
+                        IFE uccstr_pos
+                            uccstr_flg=0
+                            EXITM
+                        ENDIF
+                        uccstr_size = uccstr_size + uccstr_pos/12
+                        uccstr_esc = 0
+                    ENDIF
+                    uccstr_size = uccstr_size + 1
+                ENDIF
+            ELSE
+                uccstr_flg INSTR 1,<"'>,<&char>
+                IFE uccstr_flg
+                    IF (OPATTR _arg) AND 100y
+                        uccstr_flg = 3
+                    ENDIF
+                    EXITM
+                ENDIF
+            ENDIF
+        ENDM
+        IF uccstr_flg EQ 0 OR uccstr_esc NE 0
+            EXITM
+        ELSEIF uccstr_flg EQ 3
+            uccstr_size = uccstr_size + 1
+        ENDIF       
+        uccstr_iarg = uccstr_iarg + 1
+    ENDM
+    IF uccstr_flg EQ 0 OR uccstr_esc NE 0
+        IF uccstr_esc
+        %   .err <invalid escape sequence : argument : @CatStr(%uccstr_iarg)>
+        ELSE
+        %   .err <invalid string specifier : argument : @CatStr(%uccstr_iarg)>
+        ENDIF
+        EXITM
+    ENDIF
+    
+    align 2
+    uccstr_lbl WORD uccstr_size dup (?)
+    org $-uccstr_size*2
+    
+    uccstr_esc = 0
+    FOR _arg,<&args>
+        uccstr_flg = 0
+        FORC char,<&_arg>
+            IF uccstr_flg NE 0
+                uccstr_pos INSTR 1,<"'\>,<&char>
+                IF uccstr_pos EQ uccstr_flg
+                    EXITM
+                ELSEIF uccstr_pos EQ 3 AND uccstr_esc EQ 0
+                    uccstr_esc = 1
+                ELSE
+                    IFE uccstr_esc
+                        uccstr_char CATSTR <dw >,uccstr_quote,<&char>,uccstr_quote
+                        uccstr_char
+                    ELSE
+                        uccstr_pos INSTR 1,<\0ablrxqtpAn>,<&char>
+                        IFE uccstr_pos
+                            uccstr_flg=0
+                            EXITM
+                        ENDIF
+                        uccstr_char SUBSTR <  5ch00h28h29h3ch3eh21h22h09h25h26h0ah,0dh>,uccstr_pos*3,3+4*(uccstr_pos/12)
+                        uccstr_esc = 0
+                        dw uccstr_char
+                    ENDIF
+                ENDIF
+            ELSE
+                uccstr_flg INSTR 1,<"'>,<&char>
+                IFE uccstr_flg
+                    IF (OPATTR _arg) AND 100y
+                        uccstr_flg = 3
+                    ENDIF
+                    EXITM
+                ENDIF
+                uccstr_quote TEXTEQU <&char>
+            ENDIF
+        ENDM
+        IF uccstr_flg EQ 3
+            dw _arg
+        ENDIF       
+    ENDM
+
 endm
 
-cwsz$ macro args:VARARG
-	IFNDEF wsz_lbl_cntr
-		wsz_lbl_cntr = 0
-	ENDIF
-	wsz_lbl TEXTEQU <anonym_WSTR_>,%wsz_lbl_cntr
-	wsz_lbl_cntr = wsz_lbl_cntr + 1
-	
-	wsz_line = 1
-	wsz_line_1 TEXTEQU <>
-	wsz_line_size = 0
-	wsz_flg = 0
-	wsz_iarg = 1
-	wsz_esc = 0
-	
-	FOR _arg,<&args>
-		wsz_flg = 0
-		FORC char,<&_arg>
-			IF wsz_flg NE 0
-				wsz_pos INSTR 1,<"'\>,<&char>
-				IF wsz_pos EQ wsz_flg
-					EXITM
-				ELSEIF wsz_pos EQ 3 AND wsz_esc EQ 0
-					wsz_esc = 1
-				ELSE
-					wsz_char TEXTEQU wsz_quote,<&char>,wsz_quote
-					IF wsz_esc
-						wsz_pos INSTR 1,<\ablrxqtn>,<&char>
-						IFE wsz_pos
-							wsz_flg=0
-							EXITM
-						ENDIF
-						wsz_char SUBSTR <  5ch28h29h3ch3eh21h22h09h0ah,0dh>,wsz_pos*3,3+4*(wsz_pos/9)
-						wsz_esc = 0
-					ENDIF
-					@CatStr(<wsz_line_>,%wsz_line) TEXTEQU @CatStr(%@CatStr(<wsz_line_>,%wsz_line)),<,>,wsz_char
-					IF wsz_line_size GE 160
-						wsz_line = wsz_line + 1
-						wsz_line_size = 0
-						@CatStr(<wsz_line_>,%wsz_line) TEXTEQU <>
-					ELSE
-						wsz_pos SIZESTR wsz_char
-						wsz_line_size = wsz_line_size + wsz_pos + 1
-					ENDIF
-				ENDIF
-			ELSE
-				wsz_flg INSTR 1,<"'0123456789>,<&char>
-				IF wsz_flg NE 1 AND wsz_flg NE 2
-					EXITM
-				ENDIF
-				wsz_quote TEXTEQU <&char>
-				wsz_arg_size SIZESTR <&_arg>
-				wsz_char SUBSTR <&_arg>,wsz_arg_size,1
-				IFDIF wsz_char,wsz_quote
-					wsz_flg=0
-					EXITM
-				ENDIF
-			ENDIF
-		ENDM
-		IF wsz_flg EQ 0 OR wsz_esc
-			EXITM
-		ELSEIF wsz_flg GT 2
-			@CatStr(<wsz_line_>,%wsz_line) TEXTEQU @CatStr(%@CatStr(<wsz_line_>,%wsz_line)),<,>,<&_arg>
-			IF wsz_line_size GE 160
-				wsz_line = wsz_line + 1
-				wsz_line_size = 0
-				@CatStr(<wsz_line_>,%wsz_line) TEXTEQU <>
-			ELSE
-				wsz_line_size = wsz_line_size + @SizeStr(<&_arg>)
-			ENDIF
-		ENDIF		
-		wsz_iarg = wsz_iarg + 1
-	ENDM
-	IF wsz_flg EQ 0 OR wsz_esc NE 0
-		IF wsz_esc
-		%	.err <invalid escape sequence : argument : @CatStr(%wsz_iarg)>
-		ELSE
-		%	.err <invalid string specifier : argument : @CatStr(%wsz_iarg)>
-		ENDIF
-		EXITM <0>
-	ELSEIFE wsz_line_size
-		wsz_line = wsz_line - 1
-	ENDIF
-	.data
-		align 2
-	%	&wsz_lbl LABEL WORD
-		wsz_cntr = 1
-		REPEAT wsz_line
-			WORD @SubStr(%@CatStr(<wsz_line_>,%wsz_cntr),2)
-			wsz_cntr = wsz_cntr + 1
-		ENDM
-		WORD 0
-	.code
-%	EXITM <OFFSET &wsz_lbl> 
+;/***************************************************/
+;/*               wcsz$ , macro function            */
+;/* This macro is the function-version of WCSTR.    */
+;/* In contrast to WCSTR, the created string is     */
+;/* zero terminated. The macro assumes to be called */
+;/* from the .code-section and places the string    */
+;/* in the .data-section.                           */
+;/*     mov esi,wcsz$("\lHello World\r\n:-\b")      */
+;/*                                    qWord, 2011  */
+;/***************************************************/
+wcsz$ MACRO args:VARARG
+    .data
+        UCCSTR ,args,0
+    .code
+    uccsz_retval TEXTEQU <OFFSET >,uccstr_lbl
+    EXITM uccsz_retval
 endm
 
 ; greek capital letters

@@ -632,7 +632,7 @@ fSlvSetPrecision macro macroName:req,realPrec,intPrec
 		fssdp_real = 8
 	ELSEIFIDNI <&realPrec>,<REAL10>
 		fssdp_real = 10
-	ELSE
+	ELSEIFNB <&realPrec>
 		.err <invalid precision specifier: &realPrec>
 		EXITM
 	ENDIF
@@ -644,7 +644,7 @@ fSlvSetPrecision macro macroName:req,realPrec,intPrec
 		fssdp_int = 8
 	ELSEIFIDNI <&intPrec>,<SQWORD>
 		fssdp_int = 8
-	ELSE
+	ELSEIFNB <&intPrec>
 		.err <invalid precision specifier: &intPrec>
 		EXITM
 	ENDIF
@@ -774,6 +774,10 @@ fpuSetPrecision macro mem16:=<WORD ptr [esp-2]>,prec:=<REAL8>
 	ENDIF
 endm
 
+ldl_expand macro _arg
+	EXITM <&_arg>
+endm
+
 ; load local
 ldl macro args:VARARG
 	FOR _arg,<&args>
@@ -785,6 +789,10 @@ ldl macro args:VARARG
 		ldl_var SUBSTR <&_arg>,1,ldl_pos-1
 		ldl_value SUBSTR <&_arg>,ldl_pos+1
 		ldl_value TEXTEQU @TrimStr(%ldl_value)
+
+		IF @ScanForFlt(1,%ldl_value,blank) EQ 0
+			ldl_value TEXTEQU %ldl_value
+		ENDIF
 
 		IFE @ScanForFlt(1,%ldl_value,blank)
 		%	.err <not a number: ldl_value>

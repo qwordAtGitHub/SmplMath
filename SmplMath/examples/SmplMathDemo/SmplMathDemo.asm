@@ -12,7 +12,7 @@ include \macros\smplmath\math.inc
 include \macros\unicode.inc
 
 include ..\FncDrawCtrl\FncDrawCtrl.inc
-includelib FncDrwCtl.lib
+includelib FncDrawCtrl.lib
 
 ;/* register constant e */
 fSlvRegConst e,2.718281828

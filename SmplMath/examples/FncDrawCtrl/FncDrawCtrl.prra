@@ -4,7 +4,7 @@ Version=3000
 Assembler=Masm
 Path=C:\macros\SmplMath\examples\FncDrawCtrl
 Group=2,-1,0,1,FncDrawCtrl,-2,-1,1,Assembly,-3,-1,1,Include,-4,-1,1,Misc,-5,-1,1,Resource
-F1=-2,2,1,22,22,600,400,12,FncDrawCtrl.asm
+F1=-2,2,1,22,22,600,400,10,FncDrawCtrl.asm
 F2=-3,0,1,-10,-30,1612,856,24,FncDrawCtrl.inc
 F3=-3,0,1,-10,-32,1692,761,11,gdip.inc
 F4=-4,0,2,0,0,1469,563,1,FncDrawCtrl.def
@@ -24,7 +24,7 @@ B1=
 M1=
 [Make]
 Make=0
-0=Dll Release,'/v "$R"',"$R.res",'/c /coff /Cp "$C"',"$C.obj",'/SUBSYSTEM:WINDOWS /RELEASE /VERSION:4.0 /DLL /DEF:FncDrawCtrl.def /OUT:$O $C $M $R',"..\SmplMathDemo\FncDrwCtl.dll",'',
+0=Dll Release,'/v "$R"',"$R.res",'/c /coff /Cp "$C"',"$C.obj",'/SUBSYSTEM:WINDOWS /RELEASE /VERSION:4.0 /DLL /DEF:FncDrawCtrl.def /OUT:$O $C $M $R',..\SmplMathDemo\FncDrawCtrl.dll,'',
 Delete=0
 IncBuild=0
 Run=0,'',''

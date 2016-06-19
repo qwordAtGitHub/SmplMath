@@ -13,11 +13,14 @@ comment *
     root(x,n)				; n=1,2,3,...
     sqrt(x)
     trunc(x)
+    mod(a,b)
     abs(x)
     limit(x,max,min)
     deg(x)					; rad->deg
     rad(x)					; deg->rad
     sgn(x)					; returns signe of x: -1 or +1
+    min(a,b)
+    max(a,b)
 *
 
 
@@ -545,6 +548,26 @@ above:
 fin:
 endm
 default_fnc_dscptr <limit>,3
+
+fslv_fnc_min macro
+	fcomi st,st(1)
+	.if !CARRY?
+		fstp st
+	.else
+		fstp st(1)
+	.endif
+endm
+default_fnc_dscptr <min>,2
+
+fslv_fnc_max macro
+	fcomi st,st(1)
+	.if !CARRY?
+		fstp st(1)
+	.else
+		fstp st
+	.endif
+endm
+default_fnc_dscptr <max>,2
 
 ; fit2pi(x)
 ; transform an multiple of 2*PI to u*2*PI, 

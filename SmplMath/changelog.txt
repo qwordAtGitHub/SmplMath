@@ -1,2 +1,19 @@
 05.08.2011: Version 1.0.1
             bug fix: expressions in braces may parsed incorrectly
+
+07.08.2011: Version 1.0.2
+            improvement: ldl-macro now supports [TEXT]EQU's
+
+27.08.2011: Version 1.0.3
+            added: min/max functions
+
+12.09.2011: Version 1.0.4
+            the mod-function was not documented and noted in math_functions.inc
+
+27.10.2011: Version 1.0.5
+            > bug fix: in fSlvSetPrecision
+            > some corrections in documentaion
+            > unicode.inc: - all macros redesigned
+                           - CWSTR renamed to WCSTR
+                           - cwsz$ renamed to wcsz$
+            > eaxmples modified
