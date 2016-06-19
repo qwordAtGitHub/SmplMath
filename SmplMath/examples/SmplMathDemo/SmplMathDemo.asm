@@ -1,18 +1,21 @@
 .nolist
 include masm32rt.inc
-.686p
+.686
 .mmx
 .xmm
 
-include gdip.inc
 include gdiplus.inc
 includelib gdiplus.lib
 
 include \macros\smplmath\math.inc
-include \macros\unicode.inc
-
+include \macros\smplmath\expressions.inc
+include \macros\macros.inc
 include ..\FncDrawCtrl\FncDrawCtrl.inc
 includelib FncDrawCtrl.lib
+
+IF @Version GE 800
+	fSlvSetFlags FSF_USE_SSE2
+ENDIF
 
 ;/* register constant e */
 fSlvRegConst e,2.718281828
@@ -49,7 +52,8 @@ LOCAL gsi:GdiplusStartupInput
 LOCAL gtkn:ptr ULONG
 LOCAL rect:RECT
 LOCAL fSlvTLS()
-	
+LOCAL x:REAL4
+
 	mov gsi.GdiplusVersion,1
 	mov gsi.DebugEventCallback,0
 	mov gsi.SuppressBackgroundThread,0
@@ -69,7 +73,7 @@ LOCAL fSlvTLS()
 	mov wc.lpszMenuName,0
 	mov wc.hbrBackground,rv(GetStockObject,WHITE_BRUSH)
 	invoke RegisterClassEx,ADDR wc
-	 
+
 	fSlv rect.left   = 0.125 * rv(GetSystemMetrics,SM_CXSCREEN)
 	fSlv rect.top    = 0.125 * rv(GetSystemMetrics,SM_CYSCREEN)
 	fSlv rect.right  = 0.75  * rv(GetSystemMetrics,SM_CXSCREEN)
@@ -93,7 +97,6 @@ LOCAL fSlvTLS()
 	
 main endp
 
-
 WndProc proc uses ebx esi edi hWnd:HWND,uMsg:UINT,wParam:WPARAM,lParam:LPARAM
 LOCAL fncdscptr:FNC_DSCPTR
 LOCAL x:REAL8,y:REAL8
@@ -101,6 +104,7 @@ LOCAL cv:CURR_VIEW
 LOCAL li:LABEL_INFOA
 LOCAL graphics:PVOID
 LOCAL fSlvTLS()
+LOCAL sz[256]:TCHAR
 
 	.if uMsg == WM_CLOSE
 		invoke PostQuitMessage,0
@@ -162,7 +166,7 @@ LOCAL fSlvTLS()
 		;/* add functions to draw               */
 		;/*-------------------------------------*/
 		mov fncdscptr.flg,PEN__ARGB
-		mov fncdscptr.nPoints,500
+		mov fncdscptr.nPoints,1000
 		mov fncdscptr.pCallBack,OFFSET CallBack1
 		mov fncdscptr.pen,ColorsSalmon
 		ldl fncdscptr._width = 0.5
@@ -179,7 +183,7 @@ LOCAL fSlvTLS()
 		mov edi,rv(CreateWindowEx,0,"FncDrawCtrl32",0,WS_VISIBLE or WS_CHILD or WS_BORDER ,520,50,500,500,hWnd,0,rv(GetWindowLong,hWnd,GWL_HINSTANCE),0)
 		invoke SetWindowLong,hWnd,WND_DATA.hCtrl2,edi
 		invoke SendMessage,edi,FDCM_SET_STYLE,FDCS_MOUSE_NOTIFICATION,0
-		
+
 		mov fncdscptr.pCallBack,OFFSET CallBack3
 		mov fncdscptr.pen,ColorsMediumSpringGreen
 		invoke SendMessage,edi,FDCM_ADD_FUNCTION,ADDR fncdscptr,0
@@ -195,7 +199,7 @@ LOCAL fSlvTLS()
 	.elseif uMsg == WM_NOTIFY
 	
 		;/*-------------------------------------*/
-		;/* print mouse position in graphs      */
+		;/* print mouse position in graph's     */
 		;/* world units                         */
 		;/*-------------------------------------*/
 		
@@ -209,8 +213,10 @@ LOCAL fSlvTLS()
 			invoke GdipCreateFromHDC,edi,ADDR graphics
 			invoke GdipGraphicsClear,graphics,ColorsWhite
 			invoke GdipDeleteGraphics,graphics
-			invoke TextOut,edi,10,0,real8$(x),len(real8$(x))
-			invoke TextOut,edi,10,20,real8$(y),len(real8$(y))
+			fncx crt_sprintf,&sz,"%.15G",x
+			fn TextOut,edi,10,0,&sz,len(ADDR sz)
+			fncx crt_sprintf,&sz,"%.15G",y
+			fn TextOut,edi,10,20,&sz,len(ADDR sz)
 			invoke ReleaseDC,hWnd,edi
 		.elseif [edx].FDC_NMHDR.nmhdr.code == FDCNM_MOUSE_MOVE && edi == [edx].FDC_NMHDR.nmhdr.hwndFrom
 			d2d x,[edx].FDC_NMHDR.pointd.x
@@ -219,8 +225,10 @@ LOCAL fSlvTLS()
 			invoke GdipCreateFromHDC,edi,ADDR graphics
 			invoke GdipGraphicsClear,graphics,ColorsWhite
 			invoke GdipDeleteGraphics,graphics
-			invoke TextOut,edi,520,0,real8$(x),len(real8$(x))
-			invoke TextOut,edi,520,20,real8$(y),len(real8$(y))
+			fncx crt_sprintf,&sz,"%.15G",x
+			fn TextOut,edi,520,0,&sz,len(ADDR sz)
+			fncx crt_sprintf,&sz,"%.15G",y
+			fn TextOut,edi,520,20,&sz,len(ADDR sz)
 			invoke ReleaseDC,hWnd,edi
 		.endif
 	.else
@@ -233,6 +241,7 @@ LOCAL fSlvTLS()
 	
 WndProc endp
 
+align 16
 CallBack1 proc x:REAL8,py: ptr REAL8
 
 	mov edx,py
@@ -242,15 +251,24 @@ CallBack1 proc x:REAL8,py: ptr REAL8
 	
 CallBack1 endp
 
+align 16
 CallBack2 proc x:REAL8,py: ptr REAL8
 	
 	mov edx,py
 	
-	;/* register expression with one argument (=arg1) */
-	fSlvRegExpr <Tri>,1,arg1^(-2)*cos(arg1*x)+(arg1+2)^-2*cos((arg1+2)*x)+(arg1+4)^-2*cos((arg1+4)*x)
+	;/* register recursive expression with two arguments: arg1 = number of terms , arg2 = index of first coefficient */
+	fSlvRegRecursiveExpr Tri,2,<0>,Tri(#arg1-1,#(arg2+6)) + arg2^(-2)*cos(arg2*x)+(arg2+2)^-2*cos((arg2+2)*x)+(arg2+4)^-2*cos((arg2+4)*x)
 
+	;/* fourier series: triangular pulse , 10 terms starting at coefficient 1 , precision = REAL4/SDWORD */
+	fSlv REAL8 ptr [edx] = Tri(5,1) {i4,r4}
+
+; the same as above, but using a non recursive expression:
+
+	;/* register expression with one argument (=arg1) */
+;	fSlvRegExpr <Tri>,1,arg1^(-2)*cos(arg1*x)+(arg1+2)^-2*cos((arg1+2)*x)+(arg1+4)^-2*cos((arg1+4)*x)
+	
 	;/* fourier series: triangular pulse */
-	fSlv REAL8 ptr [edx] = {i2,r4} Tri(1)+Tri(7)+Tri(13);+Tri(19)+Tri(25)\
+;	fSlv REAL8 ptr [edx] = {i4,r4} Tri(1)+Tri(7)+Tri(13);+Tri(19)+Tri(25)\
 ;				+Tri(31)+Tri(37)+Tri(43)+Tri(49)+Tri(55)\
 ;				+Tri(61)+Tri(67)+Tri(73)+Tri(79)+Tri(85)\
 ;				+Tri(91)+Tri(97)+Tri(103)+Tri(109)
@@ -259,16 +277,20 @@ CallBack2 proc x:REAL8,py: ptr REAL8
 	
 CallBack2 endp
 
+align 16
 CallBack3 proc x:REAL8,py: ptr REAL8
-	
+
 	mov edx,py
-	
-	fSlv REAL8 ptr [edx] = 3*e^(-1.7*abs((x-2)))*sin(20*(x-2)) + 2
-	
+	IF @Version GE 800
+		fSlv REAL8 ptr [edx] = 3*expd((-1.7*abs((x-2))))*sin(20*(x-2)) + 2
+	ELSE
+		fSlv REAL8 ptr [edx] = 3*exp((-1.7*abs((x-2))))*sin(20*(x-2)) + 2
+	ENDIF
 	
 	ret
 	
 CallBack3 endp
+
 fSlvStatistics
 end main
   

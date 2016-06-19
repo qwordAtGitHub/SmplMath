@@ -8,8 +8,12 @@ include gdip.inc
 include gdiplus.inc
 includelib gdiplus.lib
 
-include \macros\unicode.inc
+include \macros\strings.inc
 include \macros\smplmath\math.inc
+
+IF @Version GE 800
+	fSlvSetFlags FSF_USE_SSE2
+ENDIF
 
 include FncDrawCtrl.inc
 
@@ -52,21 +56,11 @@ mm2pix proto pPointD: ptr PointD,pPoint: ptr POINT
 ClientPoint2Unit proto x:DWORD,y:DWORD,pAxesInfo: ptr AXES_INFO,pPointD: ptr PointD
 Unit2ClientPoint proto pPointD: ptr PointD,pAxesInfo: ptr AXES_INFO,pPoint: ptr POINT
 
-.data?
-	align 16
-	gsi		GdiplusStartupInput	<?>
-	gtkn	PULONG				 ?
 .code
 DllMain proc hInstance:HINSTANCE,fdwReason:DWORD,lpvReserved:LPVOID
 LOCAL wc:WNDCLASSEX
 	
 	.if fdwReason == DLL_PROCESS_ATTACH
-		mov gsi.GdiplusVersion,1
-		mov gsi.DebugEventCallback,0
-		mov gsi.SuppressBackgroundThread,0
-		mov gsi.SuppressExternalCodecs,0
-		invoke GdiplusStartup,ADDR gtkn,ADDR gsi,0
-
 		m2m wc.hInstance,hInstance
 		mov wc.cbSize,SIZEOF wc
 		mov wc.style,CS_HREDRAW or CS_VREDRAW or CS_DBLCLKS or CS_SAVEBITS or CS_GLOBALCLASS
@@ -82,7 +76,6 @@ LOCAL wc:WNDCLASSEX
 		invoke RegisterClassEx,ADDR wc
 	.elseif fdwReason == DLL_PROCESS_DETACH
 		invoke UnregisterClass,chr$("FncDrawCtrl32"),hInstance
-		invoke GdiplusShutdown,gtkn
 	.endif
 
 	mov eax,TRUE
@@ -393,11 +386,11 @@ LOCAL hdc:HDC
 LOCAL pointf:PointF
 LOCAL pointd:PointD
 LOCAL fdc_nmhdr:FDC_NMHDR
+LOCAL abs1:REAL8,abs2:REAL8
 LOCAL fSlvTLS()
 
 	.if uMsg == WM_CLOSE
 		invoke DestroyWindow,hWnd
-		invoke PostQuitMessage,0
 	.elseif uMsg == WM_DESTROY
 		invoke fdc_OnDestroy,hWnd
 	.elseif uMsg == WM_CREATE
@@ -710,22 +703,78 @@ LOCAL fSlvTLS()
 				mov esi,ebx
 				mov ebx,[ebx].FNCDRAW_CNTRL.pAxesInfo
 				assume ebx: ptr AXES_INFO
-				
-				fSlv = abs([ebx].view.xMax-[ebx].view.xMin)*0.1
-				fSlv = abs([ebx].view.yMax-[ebx].view.yMin)*0.1
+
+				fSlv abs1 = abs([ebx].view.xMax-[ebx].view.xMin)*0.1
+				fSlv abs2 = abs([ebx].view.yMax-[ebx].view.yMin)*0.1
 				.if SWORD ptr wParam+2 < 0
-					fSlv [ebx].view.xMin = [ebx].view.xMin - st1
-					fSlv [ebx].view.xMax = [ebx].view.xMax + st1
-					fSlv [ebx].view.yMin = [ebx].view.yMin - st0
-					fSlv [ebx].view.yMax = [ebx].view.yMax + st0
+					.if !(WORD ptr wParam & MK_CONTROL)
+						fSlv [ebx].view.xMin = [ebx].view.xMin - abs1
+						fSlv [ebx].view.xMax = [ebx].view.xMax + abs1
+					.endif
+					.if !(WORD ptr wParam & MK_SHIFT)	
+						fSlv [ebx].view.yMin = [ebx].view.yMin - abs2
+						fSlv [ebx].view.yMax = [ebx].view.yMax + abs2
+					.endif
 				.else
-					fSlv [ebx].view.xMin = [ebx].view.xMin + st1
-					fSlv [ebx].view.xMax = [ebx].view.xMax - st1
-					fSlv [ebx].view.yMin = [ebx].view.yMin + st0
-					fSlv [ebx].view.yMax = [ebx].view.yMax - st0
+					.if !(WORD ptr wParam & MK_CONTROL)
+						fSlv [ebx].view.xMin = [ebx].view.xMin + abs1
+						fSlv [ebx].view.xMax = [ebx].view.xMax - abs1
+					.endif
+					.if !(WORD ptr wParam & MK_SHIFT)
+						fSlv [ebx].view.yMin = [ebx].view.yMin + abs2
+						fSlv [ebx].view.yMax = [ebx].view.yMax - abs2
+					.endif
 				.endif
-				fstp st
-				fstp st
+
+;				fSlvVolatileXmmRegs remove,xmm0,xmm1
+;				fSlv xmm1 = abs([ebx].view.xMax-[ebx].view.xMin)*0.1
+;				fSlv xmm0 = abs([ebx].view.yMax-[ebx].view.yMin)*0.1
+;				.if SWORD ptr wParam+2 < 0
+;					.if !(WORD ptr wParam & MK_CONTROL)
+;						fSlv [ebx].view.xMin = [ebx].view.xMin - xmm1
+;						fSlv [ebx].view.xMax = [ebx].view.xMax + xmm1
+;					.endif
+;					.if !(WORD ptr wParam & MK_SHIFT)	
+;						fSlv [ebx].view.yMin = [ebx].view.yMin - xmm0
+;						fSlv [ebx].view.yMax = [ebx].view.yMax + xmm0
+;					.endif
+;				.else
+;					.if !(WORD ptr wParam & MK_CONTROL)
+;						fSlv [ebx].view.xMin = [ebx].view.xMin + xmm1
+;						fSlv [ebx].view.xMax = [ebx].view.xMax - xmm1
+;					.endif
+;					.if !(WORD ptr wParam & MK_SHIFT)
+;						fSlv [ebx].view.yMin = [ebx].view.yMin + xmm0
+;						fSlv [ebx].view.yMax = [ebx].view.yMax - xmm0
+;					.endif
+;				.endif
+;				fSlvVolatileXmmRegs default
+				
+;				fSlvRemoveFlags FSF_USE_SSE2
+;				fSlv = abs([ebx].view.xMax-[ebx].view.xMin)*0.1
+;				fSlv = abs([ebx].view.yMax-[ebx].view.yMin)*0.1
+;				.if SWORD ptr wParam+2 < 0
+;					.if !(WORD ptr wParam & MK_CONTROL)
+;						fSlv [ebx].view.xMin = [ebx].view.xMin - st1
+;						fSlv [ebx].view.xMax = [ebx].view.xMax + st1
+;					.endif
+;					.if !(WORD ptr wParam & MK_SHIFT)	
+;						fSlv [ebx].view.yMin = [ebx].view.yMin - st0
+;						fSlv [ebx].view.yMax = [ebx].view.yMax + st0
+;					.endif
+;				.else
+;					.if !(WORD ptr wParam & MK_CONTROL)
+;						fSlv [ebx].view.xMin = [ebx].view.xMin + st1
+;						fSlv [ebx].view.xMax = [ebx].view.xMax - st1
+;					.endif
+;					.if !(WORD ptr wParam & MK_SHIFT)
+;						fSlv [ebx].view.yMin = [ebx].view.yMin + st0
+;						fSlv [ebx].view.yMax = [ebx].view.yMax - st0
+;					.endif
+;				.endif
+;				fstp st
+;				fstp st				
+;				fSlvSetFlags FSF_USE_SSE2
 				
 				.if [esi].FNCDRAW_CNTRL.dwStyle & FDCS_MOUSE_NOTIFICATION
 					invoke calc_metrics,hWnd,ebx
@@ -897,26 +946,35 @@ mm2pix endp
 
 ApproxEqual proc fValue1:REAL8,fValue2:REAL8,fRange:REAL8
 	
+	IF @Version GE 800
+		fSlvRemoveFlags FSF_USE_SSE2
+	ENDIF
+	
 	xor eax,eax
 	fSlv = abs( fValue1 - fValue2 )
 	fSlv = fRange
 	fcomip st,st(1)
 	fstp st
 	setae al	
+	
+	IF @Version GE 800
+		fSlvSetFlags FSF_USE_SSE2
+	ENDIF
 	ret
 	
 ApproxEqual endp
 
 calc_metrics proc uses ebx hWnd:HWND,pAxesInfo:ptr AXES_INFO
+LOCAL fSlvTLS()
 
 	mov ebx,pAxesInfo
 	assume ebx: ptr AXES_INFO
 
-	.if fGT([ebx].view.xMin,[ebx].view.xMax,[esp-1])
+	.if fGT([ebx].view.xMin,[ebx].view.xMax)
 		xchg8 [ebx].view.xMin,[ebx].view.xMax
 	.endif
 	
-	.if fGT([ebx].view.yMin,[ebx].view.yMax,[esp-1])
+	.if fGT([ebx].view.yMin,[ebx].view.yMax)
 		xchg8 [ebx].view.yMin,[ebx].view.yMax
 	.endif
 	
@@ -932,7 +990,7 @@ calc_metrics proc uses ebx hWnd:HWND,pAxesInfo:ptr AXES_INFO
 	fSlv [ebx].metrics.xOrgin = [ebx].metrics.rectf.x - [ebx].view.xMin * [ebx].metrics.mmpux
 	fSlv [ebx].metrics.yOrgin = [ebx].view.yMax * [ebx].metrics.mmpuy + [ebx].metrics.rectf.y
 
-	.if fGE([ebx].view.xMax,0,[esp-1]) && fLE([ebx].view.xMin,0,[esp-2])
+	.if fGE([ebx].view.xMax,0) && fLE([ebx].view.xMin,0)
 		fSlv [ebx].metrics.yAxe = abs([ebx].view.xMin)*[ebx].metrics.mmpux
 	.elseif DWORD ptr [ebx].view.xMax+4 & 80000000h
 		fSlv [ebx].metrics.yAxe = [ebx].metrics.rectf._Width
@@ -940,7 +998,7 @@ calc_metrics proc uses ebx hWnd:HWND,pAxesInfo:ptr AXES_INFO
 		fSlv [ebx].metrics.yAxe = 0
 	.endif
 	
-	.if fGE([ebx].view.yMax,0,[esp-1]) && fLE([ebx].view.yMin,0,[esp-2])
+	.if fGE([ebx].view.yMax,0) && fLE([ebx].view.yMin,0)
 		fSlv [ebx].metrics.xAxe = ([ebx].view.yMax-[ebx].view.yMin)*[ebx].metrics.mmpuy - abs([ebx].view.yMin)*[ebx].metrics.mmpuy
 	.elseif DWORD ptr [ebx].view.yMax+4 & 80000000h
 		fSlv [ebx].metrics.xAxe = 0
@@ -955,7 +1013,10 @@ calc_metrics proc uses ebx hWnd:HWND,pAxesInfo:ptr AXES_INFO
 calc_metrics endp
 
 scale_axes proc uses ebx pAxesInfo: ptr AXES_INFO,xMultipleOf:REAL8,yMultipleOf:REAL8,nMarksX:DWORD,nMarksY:DWORD
-	
+LOCAL xmd:REAL8
+LOCAL ymd:REAL8
+LOCAL fSlvTLS()
+
 	mov ebx,pAxesInfo
 	assume ebx: ptr AXES_INFO
 	
@@ -964,8 +1025,11 @@ scale_axes proc uses ebx pAxesInfo: ptr AXES_INFO,xMultipleOf:REAL8,yMultipleOf:
 		ret
 	.endif
 	
-	fSlv [ebx].labels.xMarkDist = trunc(([ebx].view.xMax - [ebx].view.xMin)/xMultipleOf/nMarksX)*xMultipleOf
-	fSlv [ebx].labels.yMarkDist = trunc(([ebx].view.yMax - [ebx].view.yMin)/yMultipleOf/nMarksY)*yMultipleOf
+	fSlv xmd = ([ebx].view.xMax - [ebx].view.xMin)/nMarksX
+	fSlv ymd = ([ebx].view.yMax - [ebx].view.yMin)/nMarksY
+	
+	fSlv [ebx].labels.xMarkDist = xmd ;trunc(([ebx].view.xMax - [ebx].view.xMin)/xMultipleOf/nMarksX)*xMultipleOf
+	fSlv [ebx].labels.yMarkDist = ymd ;trunc(([ebx].view.yMax - [ebx].view.yMin)/yMultipleOf/nMarksY)*yMultipleOf
 	
 	.if !DWORD ptr [ebx].labels.xMarkDist && !DWORD ptr [ebx].labels.xMarkDist+4
 		fSlv [ebx].labels.xMarkDist = xMultipleOf
@@ -981,9 +1045,12 @@ scale_axes proc uses ebx pAxesInfo: ptr AXES_INFO,xMultipleOf:REAL8,yMultipleOf:
 		
 scale_axes endp
 
+align 16
 plot proc uses ebx esi edi graphics:PVOID,pen:PVOID,nPoints:DWORD,pAxesInfo: ptr AXES_INFO,pfnCallBack:PVOID
 LOCAL pitch:REAL8
 LOCAL x:REAL8,y:REAL8
+LOCAL dy:REAL8
+LOCAL fSlvTLS()
 
 	mov ebx,pAxesInfo
 	assume ebx: ptr AXES_INFO
@@ -995,13 +1062,15 @@ LOCAL x:REAL8,y:REAL8
 		mov nPoints,2
 	.endif
 
-	fSlv [ebx].metrics.mmpux = [ebx].metrics.rectf._Width/([ebx].view.xMax-[ebx].view.xMin)
-	fSlv [ebx].metrics.mmpuy = [ebx].metrics.rectf.Height/([ebx].view.yMax-[ebx].view.yMin)
+	fSlv dy = [ebx].view.yMax - [ebx].view.yMin
+	fSlv [ebx].metrics.mmpux = [ebx].metrics.rectf._Width/([ebx].view.xMax - [ebx].view.xMin)
+	fSlv [ebx].metrics.mmpuy = [ebx].metrics.rectf.Height/dy
 	fSlv [ebx].metrics.xOrgin = [ebx].metrics.rectf.x - [ebx].view.xMin * [ebx].metrics.mmpux
 	fSlv [ebx].metrics.yOrgin = [ebx].view.yMax * [ebx].metrics.mmpuy + [ebx].metrics.rectf.y
 
 	fSlv pitch =  ([ebx].view.xMax - [ebx].view.xMin) / (nPoints-1)
 	d2d x,[ebx].view.xMin
+
 	mov edx,nPoints
 	lea edx,[edx*SIZEOF PointF]
 	mov edi,alloc(edx)
@@ -1013,8 +1082,16 @@ LOCAL x:REAL8,y:REAL8
 		mov edx,pfnCallBack
 		assume edx: ptr CB_FNC_VALUE
 		invoke edx,x,ADDR y
-		fSlv [edi+esi*SIZEOF PointF].y = [ebx].metrics.yOrgin - y * [ebx].metrics.mmpuy 
-		
+		.if fLT(y,@fSlv8([ebx].view.yMin - dy*1.5)) 
+			fSlv [edi+esi*SIZEOF PointF].y = [ebx].metrics.yOrgin - ([ebx].view.yMin - dy*1.5) * [ebx].metrics.mmpuy
+		.else
+			.if fGT(y,@fSlv8([ebx].view.yMax + dy*1.5))
+				fSlv [edi+esi*SIZEOF PointF].y = [ebx].metrics.yOrgin - ( [ebx].view.yMax + dy*1.5) * [ebx].metrics.mmpuy
+			.else
+				fSlv [edi+esi*SIZEOF PointF].y = [ebx].metrics.yOrgin - y * [ebx].metrics.mmpuy
+			.endif
+		.endif
+
 		fSlv x = x + pitch
 		inc esi
 	.endw
@@ -1029,6 +1106,8 @@ LOCAL x:REAL8,y:REAL8
 	ret
 	
 plot endp
+
+
 
 draw_label proc uses ebx IsYAxe:DWORD,path:PVOID,fontFam:PVOID,strFormat:PVOID,xPos:REAL4,yPos:REAL4,Value:REAL8,pAxesInfo: ptr AXES_INFO
 LOCAL wsz[64]:WORD 
@@ -1126,6 +1205,8 @@ LOCAL fSlvTLS()
 	
 draw_label endp
 
+
+
 draw_axes proc uses ebx graphics:PVOID,pAxesInfo: ptr AXES_INFO
 LOCAL mmpux:REAL8,mmpuy:REAL8
 LOCAL xCenter:REAL8,yCenter:REAL8
@@ -1166,11 +1247,11 @@ LOCAL fSlvTLS()
 			fSlv xPos = 0
 		.else
 			.if DWORD ptr [ebx].view.xMin+4 & 80000000h
-				fSlv xVal = [ebx].view.xMin - mod([ebx].view.xMin,[ebx].labels.xMarkDist)
-				fSlv xPos = -mod([ebx].view.xMin,[ebx].labels.xMarkDist)*[ebx].metrics.mmpux
+				fSlv xVal = [ebx].view.xMin + (-mod([ebx].view.xMin,[ebx].labels.xMarkDist))	,\
+					 xPos = (-mod([ebx].view.xMin,[ebx].labels.xMarkDist))*[ebx].metrics.mmpux
 			.else
-				fSlv xVal = [ebx].view.xMin + ([ebx].labels.xMarkDist-mod([ebx].view.xMin,[ebx].labels.xMarkDist))
-				fSlv xPos = ([ebx].labels.xMarkDist-mod([ebx].view.xMin,[ebx].labels.xMarkDist))*[ebx].metrics.mmpux
+				fSlv xVal = [ebx].view.xMin + ([ebx].labels.xMarkDist-mod([ebx].view.xMin,[ebx].labels.xMarkDist))	,\
+					 xPos = ([ebx].labels.xMarkDist-mod([ebx].view.xMin,[ebx].labels.xMarkDist))*[ebx].metrics.mmpux
 			.endif
 		.endif
 		
@@ -1194,16 +1275,17 @@ LOCAL fSlvTLS()
 			fSlv yPos = ([ebx].view.yMax - [ebx].view.yMin) * [ebx].metrics.mmpuy
 		.else 
 			.if DWORD ptr [ebx].view.yMin+4 & 80000000h
-				fSlv yVal = [ebx].view.yMin - mod([ebx].view.yMin,[ebx].labels.yMarkDist)
-				fSlv yPos = ([ebx].view.yMax-[ebx].view.yMin)*[ebx].metrics.mmpuy + mod([ebx].view.yMin,[ebx].labels.yMarkDist)*[ebx].metrics.mmpuy
+				fSlv yVal = [ebx].view.yMin - (mod([ebx].view.yMin,[ebx].labels.yMarkDist)) ,\
+					 yPos = ([ebx].view.yMax-[ebx].view.yMin)*[ebx].metrics.mmpuy + (mod([ebx].view.yMin,[ebx].labels.yMarkDist))*[ebx].metrics.mmpuy
 			.else
-				fSlv yVal = [ebx].view.yMin + ([ebx].labels.yMarkDist-mod([ebx].view.yMin,[ebx].labels.yMarkDist))
-				fSlv yPos = ([ebx].view.yMax-[ebx].view.yMin)*[ebx].metrics.mmpuy - ([ebx].labels.yMarkDist-mod([ebx].view.yMin,[ebx].labels.yMarkDist))*[ebx].metrics.mmpuy
+				fSlvRegExpr <m_mod>,0,<-mod([ebx].view.yMin,[ebx].labels.yMarkDist)>
+				fSlv yVal = [ebx].view.yMin + ([ebx].labels.yMarkDist + m_mod())
+				fSlv yPos = ([ebx].view.yMax-[ebx].view.yMin)*[ebx].metrics.mmpuy - ([ebx].labels.yMarkDist + m_mod())*[ebx].metrics.mmpuy
 			.endif
 		.endif
 
 		.while 1
-			.break .if fGT(yVal,@fSlv8([ebx].view.yMax+[ebx].labels.yMarkDist*1.E-3),[esp-1])
+			.break .if fGT(yVal,@fSlv8([ebx].view.yMax+[ebx].labels.yMarkDist*1.E-3))
 			
 			;/* do not draw at point of origin */
 			.if !rv(ApproxEqual,yVal,FP8(0.0),@fSlv8([ebx].labels.yMarkDist*1.E-3))

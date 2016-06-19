@@ -1,3 +1,16 @@
+;/********************************************************
+; * This file is part of the SmplMath macros-system.     *
+; *                                                      *
+; *          Copyright by qWord, 2011/2013               *
+; *                                                      *
+; *          SmplMath.Masm{at}gmx{dot}net                *
+; *    http://sourceforge.net/projects/smplmath/         *
+; *                                                      *
+; *  Further Copyright and Legal statements are located  *
+; *  in the documentation (Documentation.pdf).           *
+; *                                                      *
+; ********************************************************/
+
 TK_EXPR		EQU 1
 TK_TXT		EQU 2
 TK_OPRT		EQU 4
@@ -12,56 +25,51 @@ Tokenize macro Pos:req,Expression:=< >
 	tk_err_str  TEXTEQU <>
 
 	FORC char,<&Expression>
-		IF tk_pos LT Pos 
-			GOTO Z
-		ENDIF
-		
-		tk_switch INSTR 1,<[]()+-*/^,#>,<&char>
-		IF tk_switch EQ 0
-			tk_flag = tk_flag OR TK_TXT
-			tk_txt CATSTR tk_txt,<&char>
-			GOTO Z
-		ELSEIF tk_switch GE 5
-			IF tk_SqrBrkt EQ 0
-				tk_flag = tk_flag OR TK_OPRT
-				tk_op SUBSTR <+-*/^,#>,tk_switch-4,1
-				EXITM
-			ELSE
-				tk_txt CATSTR tk_txt,<&char>
-			ENDIF
-			GOTO Z
-		ELSE
-			IFIDN <&char>,<!(>
-				IF tk_SqrBrkt EQ 0
-					tk_exp TEXTEQU tk_get_expression(1,<%@SubStr(<&Expression>,%tk_pos)>)
-					IF tkge_error EQ 1
-						tk_error = 1
-						tk_err_str  TEXTEQU <missing brace: '(' or ')'>
-					ENDIF
-					tk_flag = tk_flag OR TK_EXPR
-					tk_pos = tk_pos + tkge_pos
-					EXITM
-				ELSE
-					tk_txt CATSTR tk_txt,<&char>
-				ENDIF
-			ELSEIFIDN <&char>,<!)>
-				IF tk_SqrBrkt EQ 0
-					tk_error = 1
-					tk_err_str  TEXTEQU <unexpected brace ')'>
-					EXITM
-				ELSE
-					tk_txt CATSTR tk_txt,<&char>
-				ENDIF
-			ELSEIFIDN <&char>,<[>
-				tk_SqrBrkt = tk_SqrBrkt + 1
-				tk_txt CATSTR tk_txt,<&char>
+		IF tk_pos GE Pos 
+			tk_switch INSTR 1,<[]()+-*/^,#=>,<&char>
+			IF tk_switch EQ 0
 				tk_flag = tk_flag OR TK_TXT
-			ELSEIFIDN <&char>,<]>
-				tk_SqrBrkt = tk_SqrBrkt - 1
 				tk_txt CATSTR tk_txt,<&char>
+			ELSEIF tk_switch GE 5
+				IF tk_SqrBrkt EQ 0
+					tk_flag = tk_flag OR TK_OPRT
+					tk_op SUBSTR <+-*/^,#=>,tk_switch-4,1
+					EXITM
+				ELSE
+					tk_txt CATSTR tk_txt,<&char>
+				ENDIF
+			ELSE
+				IFIDN <&char>,<!(>
+					IF tk_SqrBrkt EQ 0
+						tk_exp TEXTEQU tk_get_expression(1,<%@SubStr(<&Expression>,%tk_pos)>)
+						IF tkge_error EQ 1
+							tk_error = 1
+							tk_err_str  TEXTEQU <missing brace: '(' or ')'>
+						ENDIF
+						tk_flag = tk_flag OR TK_EXPR
+						tk_pos = tk_pos + tkge_pos
+						EXITM
+					ELSE
+						tk_txt CATSTR tk_txt,<&char>
+					ENDIF
+				ELSEIFIDN <&char>,<!)>
+					IF tk_SqrBrkt EQ 0
+						tk_error = 1
+						tk_err_str  TEXTEQU <unexpected brace ')'>
+						EXITM
+					ELSE
+						tk_txt CATSTR tk_txt,<&char>
+					ENDIF
+				ELSEIFIDN <&char>,<[>
+					tk_SqrBrkt = tk_SqrBrkt + 1
+					tk_txt CATSTR tk_txt,<&char>
+					tk_flag = tk_flag OR TK_TXT
+				ELSEIFIDN <&char>,<]>
+					tk_SqrBrkt = tk_SqrBrkt - 1
+					tk_txt CATSTR tk_txt,<&char>
+				ENDIF
 			ENDIF
 		ENDIF
-	:Z	
 		tk_pos = tk_pos + 1
 	ENDM
 
@@ -84,6 +92,14 @@ Tokenize macro Pos:req,Expression:=< >
 		ENDIF	
 	ELSEIF ((tk_flag AND TK_EXPR) NE 0) AND ((tk_flag AND TK_TXT) NE 0)
 	%	IFNB <tk_txt>
+			IF @Version LT 800
+				IFIDN @TrimStr(%tk_txt),<XMM>
+					tk_flag = TK_TXT
+					tk_txt TEXTEQU tk_txt,<(>,tk_exp,<)>
+					tk_exp TEXTEQU <>
+					EXITM tk_txt
+				ENDIF
+			ENDIF
 			EXITM tk_exp
 		ELSE
 			tk_flag = TK_EXPR
@@ -112,29 +128,26 @@ tk_get_expression macro Pos:req,Expr:=<>
 	tkge_txt 	TEXTEQU <>
 	tkge_error	= 0
 	FORC char,<&Expr>
-		IF tkge_pos LT Pos
-			GOTO Z
-		ENDIF
-		tge_switch INSTR 1,<()>,<&char>
-		IF tge_switch EQ 0
-			tkge_txt CATSTR tkge_txt,<&char>
-			GOTO Z
-		ELSEIF tge_switch EQ 1
-			IF tkge_nesting EQ 0
-				tkge_nesting = tkge_nesting + 1
-			ELSE
-				tkge_nesting = tkge_nesting + 1
+		IF tkge_pos GE Pos
+			tge_switch INSTR 1,<()>,<&char>
+			IF tge_switch EQ 0
 				tkge_txt CATSTR tkge_txt,<&char>
+			ELSEIF tge_switch EQ 1
+				IF tkge_nesting EQ 0
+					tkge_nesting = tkge_nesting + 1
+				ELSE
+					tkge_nesting = tkge_nesting + 1
+					tkge_txt CATSTR tkge_txt,<&char>
+				ENDIF
+			ELSE
+				tkge_nesting = tkge_nesting - 1
+				IF tkge_nesting EQ 0
+					EXITM
+				ELSE
+					tkge_txt CATSTR tkge_txt,<&char>
+				ENDIF			
 			ENDIF
-		ELSE
-			tkge_nesting = tkge_nesting - 1
-			IF tkge_nesting EQ 0
-				EXITM
-			ELSE
-				tkge_txt CATSTR tkge_txt,<&char>
-			ENDIF			
 		ENDIF
-	:Z	
 		tkge_pos = tkge_pos + 1
 	ENDM
 
@@ -145,7 +158,7 @@ tk_get_expression macro Pos:req,Expr:=<>
 	EXITM tkge_txt
 endm
 
-TMT_unused1		EQU 1
+TMT_ASSIGN		EQU 1
 TMT_TXT			EQU 2
 TMT_EXPR 		EQU 8
 TMT_SINGLE_ARG	EQU 16
@@ -161,13 +174,14 @@ TMT_COMMA		EQU 8192
 TMT_PUSH		EQU 16384
 TMT_POP			EQU 32768
 TMT_STO			EQU 65536
-TMT_REC			EQU 131072
+TMT_REC			EQU 131072		; |= TMT_NEG
 TMT_FNC			EQU 262144
-TMT_unused2		EQU 524288
+TMT_FNC_ARG		EQU 524288
 TMT_PI			EQU 1048576
 TMT_SINGLE_FLT	EQU 2097152
 TMT_SINGLE_INT	EQU 4194304
-TMT_ST			EQU 8388608			; fpu specific - not used by ll_MathTokenize
+TMT_ST			EQU 8388608			; Implementation specific - not used by ll_MathTokenize; indicates that the current token is register used for calculations
+TMT_OPTMZTN		EQU 16777216		; Implementation specific - not used by ll_MathTokenize; indicates that the current token is a optimization result
 
 TMT_CONST		= TMT_FLT OR TMT_INT
 TMT_OPERAND		= TMT_CONST OR TMT_TXT OR TMT_REC OR TMT_SINGLE_ARG OR TMT_SINGLE_FLT OR TMT_SINGLE_INT
@@ -212,12 +226,10 @@ ll_MathTokenize macro SlvPath:req,SubExpr:req,Expression:=<>
 		ELSE
 			IF (tk_flag AND TK_OPRT) NE 0
 				tmt_on_oprt SlvPath,SubExpr
-				GOTO Z							; avoid strange abort of WHILE-loop on e.g.: "1^(-2)*...." oO
 			ELSEIF (tk_flag AND TK_EXPR) NE 0
 				tmt_on_expr SlvPath,SubExpr
-				GOTO Z
 			ELSEIF (tk_flag AND TK_TXT) NE 0
-			%	IF fslv_is_reg_const(<%tk_txt>)
+				IF fslv_is_reg_const(<%tk_txt>)		;; 10122012: % removed
 					tmt_iLast=ll_insert(SlvPath,%tmt_iNext,0)
 					IF fsir_flg LE 2
 						IF fsir_flg EQ 1
@@ -231,35 +243,37 @@ ll_MathTokenize macro SlvPath:req,SubExpr:req,Expression:=<>
 						ll_set_data SlvPath,%tmt_iLast,1,%fsir_txt
 					ENDIF
 					tmt_pos = tk_pos
-			%	ELSEIF @ScanForFlt(%tmt_pos,%tmt_expr) GE 1
-					tmt_iLast=ll_insert(SlvPath,%tmt_iNext,0)
-					IF ll_is_defined(SlvPath,%tmt_iNext,2)					;; 070711
-						IF ll_get_data(SlvPath,%tmt_iNext,2) AND TMT_OPRT	;; x-const -> x+(-const)
-							IFIDNI ll_get_data(SlvPath,%tmt_iNext,1),<->	;;
-								IFDIF Tokenize(%sff_pos,%tmt_expr),<^>		;; 080711
-									sff_numstr CATSTR <->,sff_numstr		;; x-const^y -> keep
-									ll_set_data SlvPath,%tmt_iNext,1,<+>	;;
-								ENDIF										;;
-							ENDIF											;;
-						ENDIF                                               ;;
-					ENDIF													;;
-					IF sff_type EQ 1
-						ll_set_data SlvPath,%tmt_iLast,2,%TMT_FLT
-					ELSE
-						ll_set_data SlvPath,%tmt_iLast,2,%TMT_INT
-					ENDIF
-					ll_set_data SlvPath,%tmt_iLast,1,%sff_numstr
-					tmt_pos = sff_pos
 				ELSE
-					tmt_iLast=ll_insert(SlvPath,%tmt_iNext,0)
-					IFIDNI @TrimStr(%tk_txt),<pi>
-						ll_set_data SlvPath,%tmt_iLast,2,%(TMT_PI OR TMT_FLT OR (tmt_flag AND TMT_NEG))
-						ll_set_data SlvPath,%tmt_iLast,1,%tk_txt
+					IF @ScanForFlt(%tmt_pos,%tmt_expr) GE 1
+						tmt_iLast=ll_insert(SlvPath,%tmt_iNext,0)
+						IF ll_is_defined(SlvPath,%tmt_iNext,2)					;; 070711
+							IF ll_get_data(SlvPath,%tmt_iNext,2) AND TMT_OPRT	;; x-const -> x+(-const)
+								IFIDNI ll_get_data(SlvPath,%tmt_iNext,1),<->	;;
+									IFDIF Tokenize(%sff_pos,%tmt_expr),<^>		;; 080711: x-const^y -> keep
+										@SFF_NegValue							;; 10122012: correct sign change
+										ll_set_data SlvPath,%tmt_iNext,1,<+>	;;
+									ENDIF										;;
+								ENDIF											;;
+							ENDIF                                               ;;
+						ENDIF													;;
+						IF sff_type EQ 1
+							ll_set_data SlvPath,%tmt_iLast,2,%TMT_FLT
+						ELSE
+							ll_set_data SlvPath,%tmt_iLast,2,%TMT_INT
+						ENDIF
+						ll_set_data SlvPath,%tmt_iLast,1,%sff_numstr
+						tmt_pos = sff_pos
 					ELSE
-						ll_set_data SlvPath,%tmt_iLast,2,%(TMT_TXT OR (tmt_flag AND TMT_NEG))
-						ll_set_data SlvPath,%tmt_iLast,1,%tk_txt
+						tmt_iLast=ll_insert(SlvPath,%tmt_iNext,0)
+						IFIDNI @TrimStr(%tk_txt),<pi>
+							ll_set_data SlvPath,%tmt_iLast,2,%(TMT_PI OR TMT_FLT OR (tmt_flag AND TMT_NEG))
+							ll_set_data SlvPath,%tmt_iLast,1,<pi>
+						ELSE
+							ll_set_data SlvPath,%tmt_iLast,2,%(TMT_TXT OR (tmt_flag AND TMT_NEG))
+							ll_set_data SlvPath,%tmt_iLast,1,%tk_txt
+						ENDIF
+						tmt_pos = tk_pos
 					ENDIF
-					tmt_pos = tk_pos
 				ENDIF
 				tmt_flag = 0
 			ELSE
@@ -279,8 +293,7 @@ ll_MathTokenize macro SlvPath:req,SubExpr:req,Expression:=<>
 				ENDIF
 			ENDIF
 		ENDIF
-	:Z
-		;ll_DebugOut SlvPath,2,8,1,width=10,<<ralign=1,hex=1>>
+		;ll_DebugOut SlvPath,2,8,1,width=15,<<ralign=1,tmt=1>>
 		IF tmt_error
 			EXITM
 		ENDIF
@@ -322,7 +335,7 @@ tmt_on_oprt macro SlvPath,SubExpr
 		EXITM
 	ELSEIF (tmt_flag AND (TMT_NEG OR TMT_OPRT))
 		tmt_error = 1
-		tmt_err_txt TEXTEQU <invalid combination of operators>
+		tmt_err_txt TEXTEQU <invalid combination of operators: error near pos.: >,%tk_pos
 		EXITM
 	ELSE
 		IF @InStr(1,<+->,%tk_op) NE 0
@@ -335,12 +348,12 @@ tmt_on_oprt macro SlvPath,SubExpr
 ;			ENDIF
 			
 			;alloc new top-node and prepare previous for usage 
-			IF tmt_nesting EQ 1
-				tmt_iNext = tmt_iTop
-				tmt_iTop = ll_insert(SlvPath,%tmt_iTop,0)
-			ELSE
+			;IF tmt_nesting EQ 1								; comment: 15102012
+			;	tmt_iNext = tmt_iTop							;
+			;	tmt_iTop = ll_insert(SlvPath,%tmt_iTop,0)		;
+			;ELSE												;
 				tmt_iNext = ll_insert(SlvPath,%tmt_iTop)
-			ENDIF
+			;ENDIF
 			ll_set_data SlvPath,%tmt_iNext,2,%TMT_OPRT
 			ll_set_data SlvPath,%tmt_iNext,1,%tk_op
 			
@@ -351,6 +364,32 @@ tmt_on_oprt macro SlvPath,SubExpr
 			tmt_iLastPrdct = tmt_iNext
 			tmt_iBeginPrdct = tmt_iNext
 			tmt_iSub = tmt_iBeginPrdct
+		ELSEIFIDN <=>,tk_op
+			IF tmt_nesting NE 1
+				tmt_error = 1
+				tmt_err_txt TEXTEQU <assignment (=) not allowed in inside bracket terms: error near pos.: >,%tk_pos
+				EXITM
+			ENDIF
+			IF tmt_exp NE 0 OR tmt_prdct NE 0 OR tmt_sum NE 0
+				tmt_error = 1
+				tmt_err_txt TEXTEQU <assignment (=) not allowed in this context: error near pos.: >,%tk_pos
+				EXITM
+			ENDIF
+			IFE tmt_flag AND TMT_BEGIN_EXPR
+				tmt_iTmp = tmt_iTop
+				tmt_iTop = ll_move(SlvPath,%tmt_iLast,%tmt_iTop,0)
+				tmt_iLast = tmt_iTmp
+				
+				ll_or_value SlvPath,%tmt_iTop,2,%TMT_ASSIGN
+
+				tmt_iLastSum = tmt_iNext
+				tmt_iLastPrdct = tmt_iNext
+				tmt_iBeginPrdct = ll_get_next_free(SlvPath)
+				tmt_iSub = 0
+				tmt_flag = TMT_COMMA OR TMT_BEGIN_EXPR
+			ENDIF
+			tmt_pos  = tk_pos
+			EXITM
 		ELSEIF @InStr(1,<*/#^>,%tk_op) NE 0
 			IFIDN tk_op,<^>
 				IF tmt_prdct NE 0 OR tmt_exp NE 0 OR tmt_sum NE 0
@@ -435,9 +474,16 @@ tmt_on_oprt macro SlvPath,SubExpr
 		ELSEIFIDN tk_op,<->
 			tmt_flag = TMT_OPRT OR TMT_MINUS
 		ELSEIFIDNI tk_op,<,>
-			tmt_iNext = ll_insert(SlvPath,%tmt_iTop)
-			ll_set_data SlvPath,%tmt_iNext,2,%TMT_PUSH
-			ll_set_data SlvPath,%tmt_iNext,1,<push>
+			;tmt_iNext = ll_insert(SlvPath,%tmt_iTop)		; 14102012
+			IF tmt_nesting EQ 1								;
+				tmt_iNext = tmt_iTop						;
+				tmt_iTop = ll_insert(SlvPath,%tmt_iTop,0)	;
+			ELSE											;
+				tmt_iNext = ll_insert(SlvPath,%tmt_iTop)	;
+			ENDIF
+			
+			;;ll_set_data SlvPath,%tmt_iNext,2,%TMT_PUSH
+			;;ll_set_data SlvPath,%tmt_iNext,1,<push>
 			
 			;tmt_iTop = tmt_iNext
 			tmt_iLast = tmt_iNext
@@ -456,24 +502,44 @@ tmt_on_oprt macro SlvPath,SubExpr
 endm
 
 tmt_on_expr macro SlvPath,SubExpr
+
 	IF (tk_flag AND TK_TXT) NE 0
 	%	IF tmt_is_reg_expr(<%tk_txt>)
 			tmt_rexpr TEXTEQU tmt_get_expr(<%tk_txt>,<%tk_exp>)
-			tk_exp TEXTEQU tmt_rexpr				; 22072011
-			tk_flag = tk_flag XOR TK_TXT			;
-;			tmt_size SIZESTR tmt_expr				;
-;			IF tk_pos LE tmt_size					;
-;				tmt_expr SUBSTR tmt_expr,tk_pos		;
-;				tmt_expr CATSTR tmt_rexpr,tmt_expr 	;
-;			ELSE									;
-;				tmt_expr TEXTEQU tmt_rexpr			;
-;			ENDIF									;
-;			tmt_pos = 1								;
-;			tmt_flag = 0							;
-;			EXITM									;		
+			tk_exp TEXTEQU tmt_rexpr
+			tk_flag = tk_flag XOR TK_TXT
+			IF tge_Sum
+				tmtoe_size SIZESTR tmt_expr
+				IF tk_pos LE tmtoe_size AND tmtoe_size NE 0
+					tmtoe_txt2 SUBSTR tmt_expr,tk_pos
+					tmt_expr TEXTEQU tk_exp,tmtoe_txt2
+					tmt_pos = 1
+				ELSE
+					tmt_expr TEXTEQU tk_exp
+					tmt_pos = 1
+				ENDIF
+				
+				tmt_flag = 0
+				EXITM
+			ENDIF
 		ENDIF
 	ENDIF
+
 	tmt_iLast=ll_insert(SlvPath,%tmt_iNext,0)
+	IFB tk_exp                                                                      ; 11122012
+		IF (tk_flag AND TK_TXT) NE 0                                                ;
+			ll_set_data SlvPath,%tmt_iLast,2,%(TMT_FNC OR (tmt_flag AND TMT_NEG))   ;
+			ll_set_data SlvPath,%tmt_iLast,1,<%tk_txt>                              ;
+		ELSE                                                                        ;
+			tmt_error = 1                                                           ;
+			tmt_err_txt TEXTEQU <empty expression: error near pos.: >,%tk_pos       ;
+			EXITM                                                                   ;
+		ENDIF                                                                       ;
+		tmt_pos = tk_pos                                                            ;
+		tmt_flag = 0                                                                ;
+		EXITM                                                                       ;
+	ENDIF                                                                           ;
+	
 	; check for singel agument or function call with one argument
 	IF tmt_check_for_single_argument(SlvPath,SubExpr)
 		EXITM
@@ -541,7 +607,7 @@ tmt_chk_expr macro SubExpr,txt:req
 	IF lst_get_cnt(SubExpr) GT 1
 		tce_iLine = lst_tm_search(SubExpr,1,<&txt>)
 		IF tce_iLine
-			fooABC=lst_inc_value(SubExpr,%tce_iLine,2)
+			??fooABC=lst_inc_value(SubExpr,%tce_iLine,2)
 			tce_ref = tce_iLine-2
 			EXITM %tce_iLine
 		ENDIF
@@ -555,25 +621,40 @@ endm
 
 tmt_check_for_single_argument macro SlvPath,SubExpr
 	IF @ScanForFlt(1,<%tk_exp>,blanks) NE 0
-		GOTO Z
+		tk_exp TEXTEQU sff_numstr
+	;	GOTO Z
+	ELSEIFB tk_exp
+		EXITM <0>
 	ELSE
 		IF @InStr(1,<%tk_exp>,<,>) NE 0 OR @InStr(1,<%tk_exp>,<^>) NE 0
 			EXITM <0>
 		ELSE
 			tmt_pos1 INSTR 1,tk_exp,<[>
 			tmt_pos2 INSTR 1,tk_exp,<]>
-			tmt_res TEXTEQU <>
+			tmt_res TEXTEQU tk_exp
 			IF tmt_pos1
-				tmt_res SUBSTR tk_exp,1,tmt_pos1-1
-				IF tmt_pos2 NE 0 AND tmt_pos2 LT @SizeStr(<%tk_exp>)
-					tmt_res CATSTR tmt_res,@SubStr(<%tk_exp>,%tmt_pos2+1,)
-				ENDIF
-			ELSE
-				tmt_res CATSTR tk_exp,< >
+				WHILE tmt_pos1 NE 0 AND tmt_pos2 NE 0
+					tmt_tmp_txt1 TEXTEQU <>
+					tmt_tmp_txt2 TEXTEQU <>
+					IF tmt_pos1 GT 1
+						tmt_tmp_txt1 SUBSTR tmt_res,1,tmt_pos1-1
+					ENDIF
+					IF tmt_pos2 NE 0 AND tmt_pos2 LT @SizeStr(<%tmt_res>)
+						tmt_tmp_txt2 SUBSTR tmt_res,tmt_pos2+1
+					ENDIF
+					tmt_res TEXTEQU tmt_tmp_txt1,tmt_tmp_txt2
+					IF @SizeStr(<%tmt_res>)
+						tmt_pos1 INSTR 1,tmt_res,<[>
+						tmt_pos2 INSTR 1,tmt_res,<]>
+					ELSE
+						EXITM
+					ENDIF
+				ENDM
 			ENDIF
+			tmt_lBrckt TEXTEQU <!(>
 			tmt_res CATSTR tmt_res,< >
-			IF @InStr(1,<%tmt_res>,<+>) EQ 0 AND @InStr(1,<%tmt_res>,<->) EQ 0 AND @InStr(1,<%tmt_res>,<*>) EQ 0 AND @InStr(1,<%tmt_res>,</>) EQ 0
-			%	IF ((OPATTR [tk_exp]) AND 1011y) NE 0
+			IF @InStr(1,<%tmt_res>,<+>) EQ 0 AND @InStr(1,<%tmt_res>,<->) EQ 0 AND @InStr(1,<%tmt_res>,<*>) EQ 0 AND @InStr(1,<%tmt_res>,</>) EQ 0 AND @InStr(1,%tmt_res,%tmt_lBrckt) EQ 0 AND @InStr(1,%tmt_res,<=>) EQ 0
+			%	IF ((OPATTR tk_exp) AND 1011y) NE 0 ; 23092012: removed -> []
 					tk_flag = (tk_flag AND TK_TXT)
 				%	IF fslv_is_reg_const(<%tk_exp>)
 						IF fsir_flg EQ 3
@@ -616,7 +697,7 @@ tmt_check_for_single_argument macro SlvPath,SubExpr
 		ENDIF
 	ENDIF
 	EXITM <0>
-:Z		
+;:Z		
 	tk_flag = (tk_flag AND TK_TXT)
 	IF tk_flag AND TK_TXT ;/* function call ? */
 		IF sff_type EQ 2
@@ -655,11 +736,16 @@ tmt_is_reg_expr macro ExprName:req
 	EXITM tmt_is_expr_def(%tire_name)
 endm
 
+tmt_ge_slv macro expr
+	EXITM <&expr>
+endm
+
 tmt_get_expr macro ExprName,List:=<>
 	FOR _arg,<&ExprName>
 		tge_name TEXTEQU <&_arg>
 	ENDM
 
+	tge_Sum = @CatStr(<fSlv_Expr_sum_>,%tge_name)
 	tge_cnt = @CatStr(<fSlv_Expr_args_>,%tge_name) 
 	tge_expr TEXTEQU @CatStr(<fSlv_Expr_>,<%tge_name>)
 	
@@ -667,18 +753,58 @@ tmt_get_expr macro ExprName,List:=<>
 	FOR _arg,<&List>
 		tge_cntr = tge_cntr + 1
 	ENDM
-
+	
 	IF tge_cntr NE tge_cnt
-		echo math parser: invalid number of arguments for reg. expression
-		EXITM <0.0>
+		tmt_error = 1
+		tmt_err_txt TEXTEQU <invalid number of arguments for reg. expression: &ExprName::(List)>
+		EXITM <0>
 	ENDIF
 
+	tge_itr = @CatStr(<fSlv_Expr_itr_>,%tge_name)
+	tge_itr_rest TEXTEQU @CatStr(<fSlv_Expr_rest_>,%tge_name)
+	tge_rest_used = 0
 	tge_cntr = 1
 	FOR param,<&List>
 		tge_arg TEXTEQU <arg>,%tge_cntr
-		tge_expr TEXTEQU @RepAllStr(1,<%tge_expr>,<%tge_arg>,<&param>)
+		IF tge_itr NE 0
+			IF tge_cntr EQ 1
+				IF @InStr(1,<&param>,<#>) EQ 1
+					tge__txt SUBSTR <&param>,2
+				ELSE
+					tge__txt TEXTEQU <&param>
+				ENDIF
+				IF tge__txt EQ 0
+					tge_expr TEXTEQU tge_itr_rest
+					tge_rest_used = 1
+				ENDIF
+			ENDIF
+		ENDIF
+		IFNB tge_expr
+			tge__mc = 0
+			IFNB <&param>
+				tge__mc INSTR 1,<&param>,<#>
+			ENDIF
+			IF tge__mc EQ 1
+				tge__txt SUBSTR <&param>,2
+				tge_expr TEXTEQU @RepAllStr(1,<%tge_expr>,<%tge_arg>,%(tge__txt))
+			ELSE
+				tge_expr TEXTEQU @RepAllStr(1,<%tge_expr>,<%tge_arg>,<&param>)
+			ENDIF
+		ENDIF
 		tge_cntr = tge_cntr + 1
-	ENDM	
+	ENDM
+
+	IFNB tge_expr
+		IF tge_rest_used
+			IF @InStr(1,<%tge_expr>,<#>) EQ 1
+				tge_expr SUBSTR tge_expr,2
+				tge_expr TEXTEQU %(tge_expr)
+			ENDIF
+		ENDIF
+		IF @InStr(1,<%tge_expr>,<?$>)
+			tge_expr TEXTEQU @RepAllStr(1,<%tge_expr>,<?$>,<>)
+		ENDIF
+	ENDIF
 	EXITM tge_expr
 endm
 
@@ -690,7 +816,7 @@ fslv_is_reg_const macro name:=<>
 		FOR _ctxt,<&name>
 			fsir_txt TEXTEQU <&_ctxt>
 		ENDM
-		IF @InStr(1,<%fsir_txt>,< >) EQ 0 AND @InStr(1,<%fsir_txt>,<	>) EQ 0 AND @InStr(1,<%fsir_txt>,<.>) EQ 0
+		IF @InStr(1,<%fsir_txt>,< >) EQ 0 AND @InStr(1,<%fsir_txt>,<	>) EQ 0 AND @InStr(1,<%fsir_txt>,<.>) EQ 0 AND @InStr(1,<%fsir_txt>,<[>) EQ 0
 		%	IFNDEF fpu_regc_&fsir_txt&_type
 				EXITM <0>
 			ELSE

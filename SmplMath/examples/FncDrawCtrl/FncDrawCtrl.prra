@@ -2,11 +2,11 @@
 Version=3000
 [Project]
 Assembler=Masm
-Path=C:\macros\SmplMath\examples\FncDrawCtrl
+
 Group=2,-1,0,1,FncDrawCtrl,-2,-1,1,Assembly,-3,-1,1,Include,-4,-1,1,Misc,-5,-1,1,Resource
-F1=-2,0,1,22,22,600,400,379,FncDrawCtrl.asm
-F2=-3,0,1,-10,-30,1612,856,24,FncDrawCtrl.inc
-F3=-3,0,1,-10,-32,1612,761,1022,gdip.inc
+F1=-2,2,1,22,22,600,400,393,FncDrawCtrl.asm
+F2=-3,0,1,-10,-30,1612,856,155,FncDrawCtrl.inc
+F3=-3,0,1,-10,-32,1616,916,323,gdip.inc
 F4=-4,0,2,0,0,1469,563,1,FncDrawCtrl.def
 Open=0,1,4,2,3
 Api=

@@ -1,0 +1,18 @@
+[Version]
+Version=3000
+[Project]
+Assembler=jWasm
+Group=2,-1,0,1,SmplMathDemo64,-2,-1,1,Assembly,-3,-1,1,Include,-4,-1,1,Misc,-5,-1,1,Resource
+F1=-2,2,1,22,22,600,400,282,SmplMathDemo64.asm
+Open=0,1
+Api=
+C1=0
+B1=
+M1=
+[Make]
+Make=0
+0=Window Release,'/v "$R"',"$R.res",'/win64 "$C"',"$C.obj",'/SUBSYSTEM:WINDOWS /RELEASE /OUT:$O $C $R',"$C.exe",'',
+1=Window Debug,'/v "$R"',"$R.res",'/win64 /Zi /Zd "$C"',"$C.obj",'/SUBSYSTEM:WINDOWS /DEBUG /OUT:$O $C $M $R',"$C.exe",'',
+Delete=0
+IncBuild=0
+Run=0,'',''

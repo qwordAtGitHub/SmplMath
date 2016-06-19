@@ -1,0 +1,17 @@
+[Version]
+Version=3000
+[Project]
+Assembler=jWasm
+Group=2,-1,0,1,SmplMath example
+F1=-1,2,1,0,0,1204,346,29,x64_Console.asm
+Open=0,1
+Api=
+C1=0
+B1=
+M1=
+[Make]
+Make=0
+0=Console Release,'/v "$R"',"$R.res",'/win64 "$C"',"$C.obj",'/SUBSYSTEM:CONSOLE /RELEASE /OUT:$O $C $M $R',"$C.exe",'',
+Delete=0
+IncBuild=0
+Run=0,'',''

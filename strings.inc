@@ -1,7 +1,15 @@
-; by qWord, 2012
-
-IFNDEF __SMPLMATH__UNICODE__
-__SMPLMATH__UNICODE__ TEXTEQU <>
+;/********************************************************
+; * This file is part of the SmplMath macros-system.     *
+; *                                                      *
+; *          Copyright by qWord, 2011/2013               *
+; *                                                      *
+; *          SmplMath.Masm{at}gmx{dot}net                *
+; *    http://sourceforge.net/projects/smplmath/         *
+; *                                                      *
+; *  Further Copyright and Legal statements are located  *
+; *  in the documentation (Documentation.pdf).           *
+; *                                                      *
+; ********************************************************/
 
 ;/*****************************************************************/
 ;/*             WSTR - macro procedure                            */
@@ -279,6 +287,197 @@ wc$ MACRO args:VARARG
     EXITM uccsz_retval
 endm
 
+; internal macro: ASCII counterpart of WCSTR
+?cstr? MACRO lbl,args:VARARG
+
+    IFNDEF ?cstr?_lbl_cntr
+        ?cstr?_lbl_cntr = 0
+    ENDIF
+    IFB <&lbl>
+        ?cstr?_lbl TEXTEQU <anonym_WSTR_>,%?cstr?_lbl_cntr
+        ?cstr?_lbl_cntr = ?cstr?_lbl_cntr + 1
+    ELSE
+        ?cstr?_lbl TEXTEQU <&lbl>
+    ENDIF
+
+    ?cstr?_size = 0
+    ?cstr?_flg = 0
+    ?cstr?_iarg = 1
+    ?cstr?_esc = 0
+    FOR _arg,<args>
+        ?cstr?_flg = 0
+        FORC char,<&_arg>
+            IF ?cstr?_flg NE 0
+                ?cstr?_pos INSTR 1,<"'\>,<&char>
+                IF ?cstr?_pos EQ ?cstr?_flg
+                    EXITM
+                ELSEIF ?cstr?_pos EQ 3 AND ?cstr?_esc EQ 0
+                ?cstr?_esc = 1
+                ELSE
+                    IF ?cstr?_esc
+                        ?cstr?_pos INSTR 1,<\0ablrxqtpAn>,<&char>
+                        
+                        IFE ?cstr?_pos
+                            ?cstr?_flg=0
+                            EXITM
+                        ENDIF
+                        ?cstr?_size = ?cstr?_size + ?cstr?_pos/12
+                        ?cstr?_esc = 0
+                    ENDIF
+                    ?cstr?_size = ?cstr?_size + 1
+                ENDIF
+            ELSE
+                ?cstr?_flg INSTR 1,<"'>,<&char>
+                IFE ?cstr?_flg
+                    IF (OPATTR _arg) AND 100y
+                        ?cstr?_flg = 3
+                    ENDIF
+                    EXITM
+                ENDIF
+            ENDIF
+        ENDM
+        IF ?cstr?_flg EQ 0 OR ?cstr?_esc NE 0
+            EXITM
+        ELSEIF ?cstr?_flg EQ 3
+            ?cstr?_size = ?cstr?_size + 1
+        ENDIF       
+        ?cstr?_iarg = ?cstr?_iarg + 1
+    ENDM
+    IF ?cstr?_flg EQ 0 OR ?cstr?_esc NE 0
+        IF ?cstr?_esc
+        %   .err <invalid escape sequence : argument : @CatStr(%?cstr?_iarg)>
+        ELSE
+        %   .err <invalid string specifier : argument : @CatStr(%?cstr?_iarg)>
+        ENDIF
+        EXITM
+    ENDIF
+    
+    ?cstr?_lbl BYTE ?cstr?_size dup (?)
+    org $-?cstr?_size
+    
+    ?cstr?_esc = 0
+    FOR _arg,<&args>
+        ?cstr?_flg = 0
+        FORC char,<&_arg>
+            IF ?cstr?_flg NE 0
+                ?cstr?_pos INSTR 1,<"'\>,<&char>
+                IF ?cstr?_pos EQ ?cstr?_flg
+                    EXITM
+                ELSEIF ?cstr?_pos EQ 3 AND ?cstr?_esc EQ 0
+                    ?cstr?_esc = 1
+                ELSE
+                    IFE ?cstr?_esc
+                        ?cstr?_char CATSTR <db >,?cstr?_quote,<&char>,?cstr?_quote
+                        ?cstr?_char
+                    ELSE
+                        ?cstr?_pos INSTR 1,<\0ablrxqtpAn>,<&char>
+                        IFE ?cstr?_pos
+                            ?cstr?_flg=0
+                            EXITM
+                        ENDIF
+                        ?cstr?_char SUBSTR <  5ch00h28h29h3ch3eh21h22h09h25h26h0dh,0ah>,?cstr?_pos*3,3+4*(?cstr?_pos/12)
+                        ?cstr?_esc = 0
+                        db ?cstr?_char
+                    ENDIF
+                ENDIF
+            ELSE
+                ?cstr?_flg INSTR 1,<"'>,<&char>
+                IFE ?cstr?_flg
+                    IF (OPATTR _arg) AND 100y
+                        ?cstr?_flg = 3
+                    ENDIF
+                    EXITM
+                ENDIF
+                ?cstr?_quote TEXTEQU <&char>
+            ENDIF
+        ENDM
+        IF ?cstr?_flg EQ 3
+            db _arg
+        ENDIF       
+    ENDM
+endm
+
+TCHR macro lbl,args:VARARG
+	TCHR_unicode = 0
+    IFDEF __UNICODE__		; used by teh MASM32-package v11+
+        TCHR_unicode = 1
+    ENDIF
+    IFDEF UNICODE			; WinInc
+    	TCHR_unicode = 1
+    ENDIF	
+	IF TCHR_unicode
+		WSTR lbl,args
+	ELSE
+		lbl db args
+	ENDIF	
+endm
+
+tchr$ macro args:VARARG
+LOCAL lbl
+	TCHR_unicode = 0
+    IFDEF __UNICODE__		; used by teh MASM32-package v11+
+        TCHR_unicode = 1
+    ENDIF
+    IFDEF UNICODE			; WinInc
+    	TCHR_unicode = 1
+    ENDIF
+	.data
+	IF TCHR_unicode
+		WSTR lbl,args,0
+	ELSE
+		lbl db args,0
+	ENDIF
+	.code
+	EXITM <OFFSET lbl>
+endm
+
+TCSTR macro lbl,args:VARARG
+	TCHR_unicode = 0
+    IFDEF __UNICODE__		; used by teh MASM32-package v11+
+        TCHR_unicode = 1
+    ENDIF
+    IFDEF UNICODE			; WinInc
+    	TCHR_unicode = 1
+    ENDIF	
+	IF TCHR_unicode
+		WCSTR lbl,args
+	ELSE
+		?cstr? lbl,args,0
+	ENDIF	
+endm
+
+tc$ macro args:VARARG
+LOCAL lbl
+	TCHR_unicode = 0
+    IFDEF __UNICODE__		; used by teh MASM32-package v11+
+        TCHR_unicode = 1
+    ENDIF
+    IFDEF UNICODE			; WinInc
+    	TCHR_unicode = 1
+    ENDIF
+	.data
+	IF TCHR_unicode
+		WCSTR lbl,args,0
+	ELSE
+		?cstr? lbl,args,0
+	ENDIF
+	.code
+	EXITM <OFFSET lbl>
+endm
+
+; name mapping to be compatible with the MASM32 SDK
+IFNDEF UCSTR
+	UCSTR 	EQU WSTR
+	UC 		EQU WSTR
+	UCCSTR 	EQU WCSTR
+	UCC 	EQU WCSTR
+	uc$		EQU w$
+	ucc$	EQU wc$
+ENDIF
+IFNDEF chr$
+	chr$	EQU tchr$
+ENDIF
+
 ; greek capital letters
 CAP_ALPHA   EQU <0391h>
 CAP_BETA    EQU <0392h>
@@ -331,6 +530,5 @@ SML_CHI     EQU <03C7h>
 SML_PSI     EQU <03C8h>
 SML_OMEGA   EQU <03C9h>
 
-ENDIF
 
 

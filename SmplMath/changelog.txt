@@ -1,31 +1,108 @@
-05.08.2011: Version 1.0.1
-            bug fix: expressions in braces may parsed incorrectly
+10.02.2012  Version 2.0.0
+            added:       - Back end macro-interface introduced.
+                           The different instruction sets (x86-integer,FPU,SSE2/FPU) are implemented in so called back ends.
+                           A back end consist of macros that are called by the fSlv-macros when a specific operation
+                           is requested. The main advatage is that the back ends does not need to interpret the parser's result.
+                           Also, the back end can be dynamically changed.
+                         - x64-support (JWASM only)
+                           The macros assumes:
+                              - to be called from .code-section
+                              - that the stack is align to 16 and the shadow space (MS-FASTCALL) is allocated (32 Bytes)
+                              - to be allowed to use the shadowspace
+                           The macros take care of the FASTCALL calling convention (Microsoft) and does only use 
+                           the XMM registers XMM0-XMM5. However, the used registers can be changed using
+                           the fSlvVolatileXmmRegs-macro.
+                           As for x32, no GPR is modified (unless fSlvVolatileGPReg is used to mark them as volatile).
+                         - SSE2 support
+                           The SSE2 instruction set can be enabled by setting the global flag FSF_USE_SSE2
+                           or by using the fSlvSelectBackEnd-macro. For x64, SSE2 is used by default.
+                           The SSE2-back end use the FPU, if there is no SSE2 implentation for the requested operation.
+                           Currently this applies to exponential, logarithm and trigonometric functions.
+                         - the function-descriptor-macro and it's code producing counterpart has been extended
+                           to fit the new requirements.
+                         - Static library (x32): \macros\SmplMath\lib\x32\SmplMath.lib
+                         - Static library (x64): \macros\SmplMath\lib\x64\SmplMath.lib
+                         - root2(x,a,b) : x^(a/b), a&b = integers
+                         - fTest-macro: test for zero
+                         - internal: fpu_is_integer-function
+                         - rsqrtss(x) (SSE2, REAL4 only): 1/sqrt(x), error less equal 1.5*2^-12
+                         - rcpss(x) (SSE2, REAL4 only): 1/x, error less equal 1.5*2^-12
+                         - expd(x) (SSE2/REAL8 only): approximation of e^x, error less than 4.0E-14
+                         - typedef: BOOLEAN_BYTE
+                         - macro: - fSlvVolatileXmmRegs
+                                  - fSlvLoadBackEnd
+                                  - fSlvSelectBackEnd
+                                  - fSlvVolatileGPReg
+                                  - fSlvI64()
+                         - new global flags: FSF_USE_FPU, FSF_USE_SSE2
+                         - macro: fSlvRegRecursiveExpr: allows to register recursive expressions
+                         - floating point values can be specified in hexadecimal notation. e.g: 3F800000r
+                         - include file: expressions.inc : contains some predefined expressions. (not included by math.inc)
 
-07.08.2011: Version 1.0.2
-            improvement: ldl-macro now supports [TEXT]EQU's
 
-27.08.2011: Version 1.0.3
-            added: min/max functions
+            improvement: - acos, asin, root, log() and ln() revised
+                         - @IsInteger/real support edx::eax
+                         - x64 support for all existing functions
+                         - SSE2 implementations for the functions:
+                           sqrt,abs,rad,deg,limit,min,max,sgn
+                         - predefined expressions: - arguments begining with # are treated as expressions that can be solved by MASM's preprocessor.
+                                                   - common macro function can be called. The macro name must have
+                                                     the "?$"-prefix. e.g.: ?$macroFnc(...). Because the macros are called
+                                                     in context of the parser, code generation is forbidden.
+                           
 
-12.09.2011: Version 1.0.4
-            the mod-function was not documented and noted in math_functions.inc
+            change:      - the exponentation operator "^" has been changed (fpu_st1_pow_st0):
+                           For negative bases, the function checks if the exponent is an integer value.
+                           In this case the result's signe is changed, if the exponent is odd.
+                           The result for negativ bases in combination with a non-integer exponents is allways positiv.
+                           Also the function respons to some special values: 0^0=1, x^0=1, 0^x=0, 0^(-x)=div. by zero
+                         - the macros support multiple, comma seperated expressions.
+                         - the __MODULE__-constant is gone out of use.
+                         - constant integer expressions (+-*/^) may be calculated while assembling if the local intger size is 4
+                           and the result is also an integer.
+                         - constant rvalues for division may be replaced by a multiplication with the reciprocal (implemented in the back ends)
+                         - the macros R4/8/10 are renamed for x64: _R4/8/10. For x32, corresponding EQU's added.
+                         - function-descriptor: FNCD_USES_SSE has been removed!
+                         - The Paser does handle assignments "="
+                         - @ScanForFlt(): - GOTO-constructs replaced by corresponding IF/ENDIF constructs.
+                                            The resaon is that MASM (all versions) somtimes get "confused" with nested macros that
+                                            use the GOTO directives. A typical error is A2002, "... cannot have more than one ELSE clause per IF block".
+                                          - the macro now support FP values written in hexadecimal notation (with R-suffix).
+                           
 
-27.10.2011: Version 1.0.5
-            > bug fix: in fSlvSetPrecision
-            > some corrections in documentaion
-            > unicode.inc: - all macros redesigned
-                           - CWSTR renamed to WCSTR
-                           - cwsz$ renamed to wcsz$
-            > eaxmples modified
+            bugfix:      - fSlv rejects variables named "s"
+                         - @TrimStr() did not work correct for arguments with commas.
+                         - function calls with one (non-constant) argument fails due a bug in fslv_call_fnc().
+                           This bug was hidden/bypassed by the faulty implimentation of @TrimStr().
+                         - regx_oprt_reg0: fxch before exponentation
+                         - The parser may emit missplaced "push" tokens.
+                         - negativ signs may be discarded for constant expressions like: 1-1.0 -> 1+1.0
 
-20.11.2011  Version 1.0.6
-            added: R4/8/10 macros
+            misc.:       - GOTO has been removed from all macros becasue it simply cause to strange errors (for all version of MASM)
 
-21.11.2011  Version 1.0.7
-            bugfix:      Because of a misconception of the @ScanForFlt()-macro, 
-                         expression could be parsed incorrectly (->tmt_check_for_single_argument)
-                         This was also a problem in some other macros.
-            improvement: @ScanForFlt() -> "blanks"-keyword added
+
+04.09.2012  Version 1.1.0 (unpublished)
+
+18.03.2012  Version 1.0.13
+            improvement: faEQ(a,b,f) compare simplified: return((abs(a-b) <= abs(a*f))?1:0)
+
+20.02.2012  Version 1.0.12
+            bugfix:     lst_create-macro: invalid parameter usage
+
+20.01.2012  Version 1.0.11
+            added:       - atan2 function
+                         - pop-Attribute
+                         - free-Attribute
+            improvement: FPU registers can be used as destination operand
+
+17.01.2012  Version 1.0.10
+            bugfix:      r8IsValid() fixed
+            misc:        examples modified
+
+04.01.2012  Version 1.0.9
+            bugfix:      BYTE-registers (AL,AH,CL,...) were treated as unsgined values.
+            added:       - @fSlvTSA()-macro: preliminary version, not documented
+                         - new include file: macro.inc , preliminary version, not documented
 
 13.12.2011  Version 1.0.8
             bugfix:      - GPRs fails for functions with one argument (->fslv_call_fnc)
@@ -38,23 +115,31 @@
                          include \macros\SmplMath\math.inc
                          ...
 
-04.01.2012  Version 1.0.9
-            bugfix:      BYTE-registers (AL,AH,CL,...) were treated as unsgined values.
-            added:       - @fSlvTSA()-macro: preliminary version, not documented
-                         - new include file: macro.inc , preliminary version, not documented
+21.11.2011  Version 1.0.7
+            bugfix:      Because of a misconception of the @ScanForFlt()-macro, 
+                         expression could be parsed incorrectly (->tmt_check_for_single_argument)
+                         This was also a problem in some other macros.
+            improvement: @ScanForFlt() -> "blanks"-keyword added
 
-17.01.2012  Version 1.0.10
-            bugfix:      r8IsValid() fixed
-            misc:        examples modified
+20.11.2011  Version 1.0.6
+            added: R4/8/10 macros
 
-20.01.2012  Version 1.0.11
-            added:       - atan2 function
-                         - pop-Attribute
-                         - free-Attribute
-            improvement: FPU registers can be used as destination operand
+27.10.2011: Version 1.0.5
+            > bug fix: in fSlvSetPrecision
+            > some corrections in documentaion
+            > unicode.inc: - all macros redesigned
+                           - CWSTR renamed to WCSTR
+                           - cwsz$ renamed to wcsz$
+            > eaxmples modified
 
-20.02.2012  Version 1.0.11
-            bugfix:     lst_create-macro: invalid parameter usage
+12.09.2011: Version 1.0.4
+            the mod-function was not documented and noted in math_functions.inc
 
-18.03.2012  Version 1.0.12
-            improvement: faEQ(a,b,f) compare simplified: return((abs(a-b) <= abs(a*f))?1:0)
+27.08.2011: Version 1.0.3
+            added: min/max functions
+
+07.08.2011: Version 1.0.2
+            improvement: ldl-macro now supports [TEXT]EQU's
+
+05.08.2011: Version 1.0.1
+            bug fix: expressions in braces may parsed incorrectly

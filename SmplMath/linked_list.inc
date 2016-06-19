@@ -1,3 +1,17 @@
+;/********************************************************
+; * This file is part of the SmplMath macros-system.     *
+; *                                                      *
+; *          Copyright by qWord, 2011/2013               *
+; *                                                      *
+; *          SmplMath.Masm{at}gmx{dot}net                *
+; *    http://sourceforge.net/projects/smplmath/         *
+; *                                                      *
+; *  Further Copyright and Legal statements are located  *
+; *  in the documentation (Documentation.pdf).           *
+; *                                                      *
+; ********************************************************/
+
+
 ;
 ; OPEN DOUBLY-LINKED LISTS:
 ;
@@ -17,7 +31,7 @@
 ;                         LL_&Name&_free_2
 ;                         LL_&Name&_free_1   = first deleted node
 ;
-; NODES: a node consist of an backwards and an forward link and one or more textmacros:
+; NODES: a node consist of an backwards and a forward link and one or more textmacros:
 ;
 ;       LL_&Name&_&iNode&_bLink         = index of previous node
 ;       LL_&Name&_&iNode&_fLink         = index of next node
@@ -66,21 +80,19 @@ ll_insert macro LLName:req,iNode:req,bInsertBefore:=<1>
 	ELSE
 		lli_cntr = LL_&LLName&_cnt
 	ENDIF
-	IF bInsertBefore EQ 0
-		GOTO Z
+	IF bInsertBefore NE 0
+		lli_blink =	@CatStr(<LL_&LLName&_>,%(iNode),<_bLink>)
+		LL_&LLName&_&iNode&_bLink = lli_cntr
+		@CatStr(<LL_&LLName&_>,%lli_cntr,<_bLink>) = lli_blink
+		@CatStr(<LL_&LLName&_>,%lli_cntr,<_fLink>) = iNode
+		@CatStr(<LL_&LLName&_>,%lli_cntr,<_1>) TEXTEQU <>
+		IF lli_blink NE 0
+			@CatStr(<LL_&LLName&_>,%lli_blink,<_fLink>) = lli_cntr
+		ELSE
+			LL_&LLName&_iFirst = lli_cntr
+		ENDIF
+		EXITM %lli_cntr
 	ENDIF
-	lli_blink =	@CatStr(<LL_&LLName&_>,%(iNode),<_bLink>)
-	LL_&LLName&_&iNode&_bLink = lli_cntr
-	@CatStr(<LL_&LLName&_>,%lli_cntr,<_bLink>) = lli_blink
-	@CatStr(<LL_&LLName&_>,%lli_cntr,<_fLink>) = iNode
-	@CatStr(<LL_&LLName&_>,%lli_cntr,<_1>) TEXTEQU <>
-	IF lli_blink NE 0
-		@CatStr(<LL_&LLName&_>,%lli_blink,<_fLink>) = lli_cntr
-	ELSE
-		LL_&LLName&_iFirst = lli_cntr
-	ENDIF
-	EXITM %lli_cntr
-:Z	
 	lli_flink =	@CatStr(<LL_&LLName&_>,%(iNode),<_fLink>)
 	LL_&LLName&_&iNode&_fLink = lli_cntr
 	@CatStr(<LL_&LLName&_>,%lli_cntr,<_fLink>) = lli_flink
@@ -142,19 +154,18 @@ ll_move macro LLName:req,iNode:req,iDestNode:req,bInsertBefore:=<1>
 			EXITM <-1>
 		ENDIF
 	ENDIF
-	IF bInsertBefore EQ 0
-		GOTO Z
-	ENDIF	
-	lli_blink =	@CatStr(<LL_&LLName&_>,%(iDestNode),<_bLink>)
-	@CatStr(<LL_&LLName&_>,%(iDestNode),<_bLink>) = iNode
-	@CatStr(<LL_&LLName&_>,%(iNode),<_bLink>) = lli_blink
-	@CatStr(<LL_&LLName&_>,%(iNode),<_fLink>) = iDestNode
-	IF lli_blink NE 0
-		@CatStr(<LL_&LLName&_>,%lli_blink,<_fLink>) = iNode
-	ELSE
-		LL_&LLName&_iFirst = iNode
+	IF bInsertBefore NE 0
+		lli_blink =	@CatStr(<LL_&LLName&_>,%(iDestNode),<_bLink>)
+		@CatStr(<LL_&LLName&_>,%(iDestNode),<_bLink>) = iNode
+		@CatStr(<LL_&LLName&_>,%(iNode),<_bLink>) = lli_blink
+		@CatStr(<LL_&LLName&_>,%(iNode),<_fLink>) = iDestNode
+		IF lli_blink NE 0
+			@CatStr(<LL_&LLName&_>,%lli_blink,<_fLink>) = iNode
+		ELSE
+			LL_&LLName&_iFirst = iNode
+		ENDIF
+	%	EXITM <&iNode>
 	ENDIF
-%	EXITM <&iNode>
 :Z	
 	lli_flink =	@CatStr(<LL_&LLName&_>,%(iDestNode),<_fLink>)
 	@CatStr(<LL_&LLName&_>,%(iDestNode),<_fLink>) = iNode
@@ -298,7 +309,11 @@ ll_get macro LLName:req,iNode:req,nCnt:=<1>,iDataRecord:=<1>,bGetData:=<0>,DefLi
 		IF bGetData EQ 0
 			EXITM %llg_flink
 		ELSE
-		%	EXITM <@CatStr(<LL_&LLName&_>,%llg_flink,<_&iDataRecord&>)>
+			IF ll_is_defined(LLName,%llg_flink,iDataRecord)
+			%	EXITM <@CatStr(<LL_&LLName&_>,%llg_flink,<_&iDataRecord&>)>
+			ELSE
+				EXITM <&DefLit>
+			ENDIF
 		ENDIF
 	ENDIF
 	IF bGetData EQ 0
@@ -391,8 +406,12 @@ llcd_cid macro LLName:req,iNode:req,iDataRecord:req
 	ENDIF
 endm
 
-ll_stream_tm macro LLName:req,iDataRecord:req,DefLit:=<>,tmNames:VARARG
-	llst_flink = ll_get_first(LLName) 
+ll_stream_tm macro LLName:req,iNode,iDataRecord:req,DefLit:=<>,tmNames:VARARG
+	IFB <iNode>
+		llst_flink = ll_get_first(LLName)
+	ELSE
+		llst_flink = iNode
+	ENDIF
 	FOR tm,<&tmNames>
 		IF llst_flink
 			tm TEXTEQU @CatStr(<LL_&LLName&_>,%llst_flink,<_&iDataRecord&>)
@@ -404,8 +423,12 @@ ll_stream_tm macro LLName:req,iDataRecord:req,DefLit:=<>,tmNames:VARARG
 	EXITM %llst_flink
 endm
 
-ll_stream_const macro LLName:req,iDataRecord:req,DefVal:=<0>,constNames:VARARG
-	llst_flink = ll_get_first(LLName) 
+ll_stream_const macro LLName:req,iNode,iDataRecord:req,DefVal:=<0>,constNames:VARARG
+	IFB <iNode>
+		llst_flink = ll_get_first(LLName)
+	ELSE
+		llst_flink = iNode
+	ENDIF
 	FOR const,<&constNames>
 		IF llst_flink
 			const = @CatStr(<LL_&LLName&_>,%llst_flink,<_&iDataRecord&>)
@@ -417,6 +440,22 @@ ll_stream_const macro LLName:req,iDataRecord:req,DefVal:=<0>,constNames:VARARG
 	EXITM %llst_flink
 endm
 
+ll_stream_links macro LLName:req,iNode,linkNames:VARARG
+	IFB <iNode>
+		llst_flink = ll_get_first(LLName)
+	ELSE
+		llst_flink = iNode
+	ENDIF
+	FOR link,<&linkNames>
+		IF llst_flink
+			link = llst_flink
+			llst_flink = ll_get_next(LLName,%llst_flink)
+		ELSE
+			link = 0
+		ENDIF
+	ENDM
+	EXITM %llst_flink
+endm
 
 
 ; shows a list in the build-console
@@ -720,6 +759,14 @@ lldo_show_tmt_flags macro num:req
 		ELSEIF lldstf_num AND TMT_ST
 			lldstf_txt CATSTR lldstf_txt,< ST>
 			lldstf_num = lldstf_num XOR TMT_ST
+			lldstf_match = 1
+		ELSEIF lldstf_num AND TMT_ASSIGN
+			lldstf_txt CATSTR lldstf_txt,< ASSIGN>
+			lldstf_num = lldstf_num XOR TMT_ASSIGN
+			lldstf_match = 1
+		ELSEIF lldstf_num AND TMT_OPTMZTN
+			lldstf_txt CATSTR lldstf_txt,< OPTMZTN>
+			lldstf_num = lldstf_num XOR TMT_OPTMZTN
 			lldstf_match = 1
 		ENDIF
 		IFE lldstf_match
