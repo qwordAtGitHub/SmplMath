@@ -554,7 +554,7 @@ tmt_chk_expr macro SubExpr,txt:req
 endm
 
 tmt_check_for_single_argument macro SlvPath,SubExpr
-	IF @ScanForFlt(1,<%tk_exp>,blank) NE 0
+	IF @ScanForFlt(1,<%tk_exp>,blanks) NE 0
 		GOTO Z
 	ELSE
 		IF @InStr(1,<%tk_exp>,<,>) NE 0 OR @InStr(1,<%tk_exp>,<^>) NE 0

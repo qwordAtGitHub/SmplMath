@@ -17,3 +17,11 @@
                            - CWSTR renamed to WCSTR
                            - cwsz$ renamed to wcsz$
             > eaxmples modified
+20.11.2011  Version 1.0.6
+            added: R4/8/10 macros
+
+21.11.2011  Version 1.0.7
+            bugfix:      Because of a misconception of the @ScanForFlt()-macro, 
+                         expression could be parsed incorrectly (->tmt_check_for_single_argument)
+                         This was also a problem in some other macros.
+            improvement: @ScanForFlt() -> "blanks"-keyword added

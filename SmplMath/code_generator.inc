@@ -848,6 +848,7 @@ fscc_nc_REAL8  = 0 ;
 fscc_nc_REAL10 = 0 ;
 
 ; use ONLY!: SWORD DWORD QWORD REAL4 REAl8 REAL10
+; REAL4/8/10 must be written as FP-values
 @fSlvCreateConstant macro name:req,value:req,_type:req
 	
 	fscc_value TEXTEQU @TrimStr(<&value>)
@@ -915,7 +916,7 @@ fscc_nc_REAL10 = 0 ;
 			ELSEIFIDNI <&_type>,<SQWORD>
 				IF fslv_glb_flags AND FSF_CHECK_SQWORD
 					IFE chk_sqword(&value)
-						.err <constant !value out of range (SQWORD): &value : switch to an floating point constant>
+						.err <constant !value out of range (SQWORD): &value : switch to floating point constant>
 					ENDIF
 				ENDIF
 				name QWORD value

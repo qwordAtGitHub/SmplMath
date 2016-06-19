@@ -790,11 +790,11 @@ ldl macro args:VARARG
 		ldl_value SUBSTR <&_arg>,ldl_pos+1
 		ldl_value TEXTEQU @TrimStr(%ldl_value)
 
-		IF @ScanForFlt(1,%ldl_value,blank) EQ 0
+		IF @ScanForFlt(1,%ldl_value,blanks) EQ 0
 			ldl_value TEXTEQU %ldl_value
 		ENDIF
 
-		IFE @ScanForFlt(1,%ldl_value,blank)
+		IFE @ScanForFlt(1,%ldl_value,blanks)
 		%	.err <not a number: ldl_value>
 			EXITM
 		ENDIF
@@ -891,7 +891,7 @@ endm
 ;		llr4_value SUBSTR <&_arg>,llr4_pos+1
 ;		llr4_value TEXTEQU @TrimStr(%llr4_value)
 ;
-;		IFE @ScanForFlt(1,%llr4_value,blank)
+;		IFE @ScanForFlt(1,%llr4_value,blanks)
 ;		%	.err <not a number: llr4_value>
 ;			EXITM
 ;		ENDIF
@@ -925,7 +925,7 @@ endm
 ;		llr8_value SUBSTR <&_arg>,llr8_pos+1
 ;		llr8_value TEXTEQU @TrimStr(%llr8_value)
 ;
-;		IFE @ScanForFlt(1,%llr8_value,blank)
+;		IFE @ScanForFlt(1,%llr8_value,blanks)
 ;		%	.err <not a number: llr8_value>
 ;			EXITM
 ;		ENDIF
@@ -971,7 +971,7 @@ endm
 ;		lli8_value SUBSTR <&_arg>,lli8_pos+1
 ;		lli8_value TEXTEQU @TrimStr(%lli8_value)
 ;		
-;		IFE @ScanForFlt(1,%lli8_value,blank)
+;		IFE @ScanForFlt(1,%lli8_value,blanks)
 ;		%	.err <not a number: lli8_value>
 ;			EXITM
 ;		ENDIF
@@ -1004,7 +1004,7 @@ endm
 
 ;; mov REAL8 to mem64 using edx and eax
 ;llr8 macro Var,value
-;	IFE @ScanForFlt(1,<&value>,blank)
+;	IFE @ScanForFlt(1,<&value>,blanks)
 ;		.err <not a number: value>
 ;		EXITM
 ;	ENDIF
@@ -1040,7 +1040,7 @@ endm
 
 fSlvRegConst macro ConstName:req,Value:req
 	IFNDEF fpu_regc_&ConstName&_type
-		IF @ScanForFlt(1,<&Value>,blank)
+		IF @ScanForFlt(1,<&Value>,blanks)
 			fpu_regc_equ_&ConstName& TEXTEQU <&Value>
 			fpu_regc_&ConstName&_type = sff_type
 			EXITM
@@ -1278,7 +1278,7 @@ fcmpx macro cmpSuffix,approxEQ:=<0>,args:VARARG ;cmpSuffix,approxEQ:=<0>,a:req,b
 				fild QWORD ptr [esp-8]
 			ENDIF
 		ELSE ; bug fix for masm
-			IF @ScanForFlt(1,%fcmpx_b,blank) NE 0
+			IF @ScanForFlt(1,%fcmpx_b,blanks) NE 0
 				IF sff_type EQ 1
 					fld @fSlvCreateConstant(get_unique_lbl(<fcmp_lbl1_>),%fcmpx_b,@CatStr(<REAL>,%fslv_lcl_real_type))
 				ELSE
@@ -1319,7 +1319,7 @@ fcmpx macro cmpSuffix,approxEQ:=<0>,args:VARARG ;cmpSuffix,approxEQ:=<0>,a:req,b
 				fild QWORD ptr [esp-8]
 			ENDIF
 		ELSE
-			IF @ScanForFlt(1,%fcmpx_a,blank) NE 0
+			IF @ScanForFlt(1,%fcmpx_a,blanks) NE 0
 				IF sff_type EQ 1
 					fld @fSlvCreateConstant(get_unique_lbl(<fcmp_lbl2_>),%fcmpx_a,@CatStr(<REAL>,%fslv_lcl_real_type))
 				ELSE
@@ -1348,7 +1348,7 @@ fcmpx macro cmpSuffix,approxEQ:=<0>,args:VARARG ;cmpSuffix,approxEQ:=<0>,a:req,b
 		ENDIF
 	ELSE
 		feqa_txt TEXTEQU <>
-		IF @ScanForFlt(1,%fcmpx_factor,blank) NE 0
+		IF @ScanForFlt(1,%fcmpx_factor,blanks) NE 0
 			IF sff_type EQ 1
 				feqa_txt TEXTEQU @fSlvCreateConstant(get_unique_lbl(<fcmp_lbl2_>),%fcmpx_factor,@CatStr(<REAL>,@SubStr(<   4   8 8>,%fslv_lcl_real_type,1)))
 			ELSE
@@ -1394,6 +1394,35 @@ fcmpx macro cmpSuffix,approxEQ:=<0>,args:VARARG ;cmpSuffix,approxEQ:=<0>,a:req,b
 			fcmp_bool_byte TEXTEQU <BYTE ptr !(>,fcmpx_pByte,<!)>
 		ENDIF	
 	ENDIF
+endm
+
+R4 macro value:req
+	EXITM R??(4,value)
+endm
+
+R8 macro value:req
+	EXITM R??(8,value)
+endm
+
+R10 macro value:req
+	EXITM R??(10,value)
+endm
+
+R?? macro num:req,value:req
+	??R&num&_value TEXTEQU <&value>
+	IFE @ScanForFlt(1,<&value>,blanks)
+		.err <R&num&: invalid constant: value>
+	ELSE
+		IF sff_type NE 1
+			IF (sff_flag AND SFF_HEX_SUFFIX) NE 0
+				.err <R&num&: floating pointer initializer expected>
+				EXITM <0>
+			ENDIF
+			??R&num&_value CATSTR ??R&num&_value,<.0>
+		ENDIF
+		EXITM @fSlvCreateConstant(get_unique_lbl(<??R&num&_CONST_>),%??R&num&_value,REAL&num&)
+	ENDIF
+	EXITM <0>
 endm
 
 fSlvStatistics macro

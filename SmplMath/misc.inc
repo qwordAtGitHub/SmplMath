@@ -161,9 +161,12 @@ endm
 ;       pos:    start position in given expression                                                          ;
 ;       txt:    expression to scan                                                                          ;
 ;       Chr:    [optional] a string containing all characters that can follow a numeric expression.         ;
+;               This test is applies to the character directly following the numeric expression (one char.  ;
+;               is tested)                                                                                  ;
 ;               If you specific "default" then for the follow char. is tested:                              ;
 ;                                         space,tab,+,-,*,/,),","                                           ;
-;               An other key word is "blank", which cause to test for spaces and tabs.                      ;
+;               An other key word is "blank", which cause to test for space and tab.                        ;
+;               The key word "blanks" let the macro test all(!) remaining characters in the string          ;
 ;               If this parameter is blank,the macro doesn't care the char.                                 ;
 ;               following a valid numeric expression, even if this invalidate it.                           ;
 ;               (see Example 6,7,8)                                                                         ;
@@ -430,11 +433,19 @@ endm
 			ELSE
 				sff_validchar TEXTEQU <&Chr>
 			ENDIF
-			sff_char SUBSTR sff_txt,sff_pos,1
-			sff_valid INSTR 1,sff_validchar,sff_char
-			IF sff_valid EQ 0
-				sff_type = 0
-				EXITM <0>
+			IFDIFI <&Chr>,<blanks>
+				sff_char SUBSTR sff_txt,sff_pos,1
+				sff_valid INSTR 1,sff_validchar,sff_char
+				IF sff_valid EQ 0
+					sff_type = 0
+					EXITM <0>
+				ENDIF
+			ELSE
+				sff_char SUBSTR sff_txt,sff_pos
+				IFNB sff_char
+					sff_type = 0
+					EXITM <0>
+				ENDIF
 			ENDIF
 		ENDIF
 	ENDIF
