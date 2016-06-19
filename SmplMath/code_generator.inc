@@ -92,7 +92,11 @@ ll_fSlv macro SlvPath,SubExpr
 						lfs_txt2 TEXTEQU <WORD ptr [esp-4]>
 					ELSE
 						mov BYTE ptr [esp-4],lfs_txt2
-						mov BYTE ptr [esp-3],0
+						.if lfs_txt2 & 80h
+							mov BYTE ptr [esp-3],0ffh
+						.else
+							mov BYTE ptr [esp-3],0
+						.endif
 						lfs_txt2 TEXTEQU <WORD ptr [esp-4]>
 					ENDIF
 				ENDIF
@@ -474,6 +478,24 @@ fslv_call_fnc macro
 				lfs_stack_cntr = lfs_stack_cntr + 1
 			ELSEIF lfs_flg AND TMT_SINGLE_ARG
 				lfs_arg TEXTEQU @SubStr(<%lfs_txt>,1,%(@InStr(1,<%lfs_txt>,<,>)-1))
+				lfs_reg = @MatchStrI(%lfs_arg,1,eax,ebx,ecx,edx,esi,edi,ebp,esp,ax,bx,cx,dx,si,di,bp,sp,al,ah,cl,ch,dl,dh,bl,bh)
+				IF lfs_reg
+					IF lfs_reg LE 8
+						mov DWORD ptr [esp-4],lfs_arg
+						lfs_arg TEXTEQU <DWORD ptr [esp-4]>
+					ELSEIF lfs_reg LE 16
+						mov WORD ptr [esp-4],lfs_arg
+						lfs_arg TEXTEQU <WORD ptr [esp-4]>
+					ELSE
+						mov BYTE ptr [esp-4],lfs_arg
+						.if lfs_arg & 80h
+							mov BYTE ptr [esp-3],0ffh
+						.else
+							mov BYTE ptr [esp-3],0
+						.endif
+						lfs_arg TEXTEQU <WORD ptr [esp-4]>
+					ENDIF
+				ENDIF
 				IF @IsIntegerType(%lfs_arg)
 					fild lfs_arg
 				ELSE
@@ -510,7 +532,11 @@ fslv_load_rarg macro
 					lfs_txt3 TEXTEQU <WORD ptr [esp-4]>
 				ELSE
 					mov BYTE ptr [esp-4],lfs_txt3
-					mov BYTE ptr [esp-3],0
+					.if lfs_txt3 & 80h
+						mov BYTE ptr [esp-3],0ffh
+					.else
+						mov BYTE ptr [esp-3],0
+					.endif
 					lfs_txt3 TEXTEQU <WORD ptr [esp-4]>
 				ENDIF
 			ENDIF
@@ -591,7 +617,11 @@ fslv_load_larg macro
 					lfs_txt3 TEXTEQU <WORD ptr [esp-4]>
 				ELSE
 					mov BYTE ptr [esp-4],lfs_txt3
-					mov BYTE ptr [esp-3],0
+					.if lfs_txt3 & 80h
+						mov BYTE ptr [esp-3],0ffh
+					.else
+						mov BYTE ptr [esp-3],0
+					.endif
 					lfs_txt3 TEXTEQU <WORD ptr [esp-4]>
 				ENDIF
 			ENDIF

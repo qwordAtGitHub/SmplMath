@@ -18,6 +18,9 @@ fslv10_def_real_type = 10	;/
 @fslvI_def_int_type = 4     ;-@fSlvI()
 @fslvI_def_real_type = 4    ;/
 
+fsTSA_glbl_int_type = 4
+fsTSA_glbl_real_type = 4
+
 fcmp_def_int_type = fslv_glbl_int_type
 fcmp_def_real_type = fslv_glbl_real_type
 
@@ -1269,7 +1272,11 @@ fcmpx macro cmpSuffix,approxEQ:=<0>,args:VARARG ;cmpSuffix,approxEQ:=<0>,a:req,b
 				mov WORD ptr [esp-4],fcmpx_b
 				fild WORD ptr [esp-4]
 			ELSEIF msi_index LE 24
-				mov DWORD ptr [esp-4],0
+				.if fcmpx_b & 80h
+					mov DWORD ptr [esp-4],-1
+				.else
+					mov DWORD ptr [esp-4],0
+				.endif
 				mov BYTE ptr [esp-4],fcmpx_b
 				fild DWORD ptr [esp-4]
 			ELSE
@@ -1310,7 +1317,11 @@ fcmpx macro cmpSuffix,approxEQ:=<0>,args:VARARG ;cmpSuffix,approxEQ:=<0>,a:req,b
 				mov WORD ptr [esp-4],fcmpx_a
 				fild WORD ptr [esp-4]
 			ELSEIF msi_index LE 24
-				mov DWORD ptr [esp-4],0
+				.if fcmpx_a & 80h
+					mov DWORD ptr [esp-4],-1
+				.else
+					mov DWORD ptr [esp-4],0
+				.endif
 				mov BYTE ptr [esp-4],fcmpx_a
 				fild DWORD ptr [esp-4]
 			ELSE
@@ -1466,4 +1477,81 @@ fSlvStatistics macro
 	%echo ------ end statistics ---
 	%echo
 endm
+
+@fSlvTSA macro arg
+	IFB <&arg>
+		EXITM <&arg>
+	ENDIF
+	fstsa_pos1 INSTR 1,<&arg>,<">
+	fstsa_pos2 INSTR 1,<&arg>,<'>
+	IF fstsa_pos1 NE 0 OR fstsa_pos2 NE 0
+		EXITM <&arg>
+	ENDIF
+	fstsa_arg TEXTEQU @TrimStr(<&arg>)
+	fstsa_pos1 INSTR 1,fstsa_arg,<=>
+	fstsa_pos2 INSTR 1,fstsa_arg,<:>
+	IF fstsa_pos1 EQ 0 AND fstsa_pos2 EQ 0
+		EXITM <&arg>
+	ENDIF
+	IF fstsa_pos1 NE 0 AND fstsa_pos2 NE 0
+		.err <syntax error in argument: invalid formula>
+		EXITM <0>
+	ENDIF
+	IF fstsa_pos1 NE 0
+		fstsa_pos = fstsa_pos1
+		fstsa_real = 1
+	ELSE
+		fstsa_pos = fstsa_pos2
+		fstsa_real = 0
+	ENDIF
+	fstsa_size SIZESTR fstsa_arg
+	IF fstsa_size EQ fstsa_pos
+		.err <invalid expression as argument>
+		EXITM <0>
+	ENDIF
+	IF fstsa_pos NE 1
+		fstsa_expr SUBSTR fstsa_arg,fstsa_pos+1
+		fstsa_dest SUBSTR fstsa_arg,1,fstsa_pos-1
+		IF @MatchStrI(%fstsa_dest,1,r4,r8,i4)
+			IF msi_index LE 2
+				fstsa_real = 1
+				fsTSA_lcl_real_type = @GetArgByIndex(%msi_index-1,,4,8)
+			ELSE
+				fstsa_real = 0
+				fsTSA_lcl_int_type = 4
+			ENDIF
+			fstsa_dest TEXTEQU <>
+		ELSE
+			fsTSA_lcl_int_type = fsTSA_glbl_int_type
+			fsTSA_lcl_real_type = fsTSA_glbl_int_type
+		ENDIF
+	ELSE
+		fstsa_expr SUBSTR fstsa_arg,fstsa_pos+1
+		fstsa_dest TEXTEQU <>
+		fsTSA_lcl_int_type = fsTSA_glbl_int_type
+		fsTSA_lcl_real_type = fsTSA_glbl_int_type
+	ENDIF
+	
+	IFNB fstsa_dest
+		fstsa_expr CATSTR fstsa_dest,<=>,fstsa_expr
+	ENDIF
+	IF fstsa_real
+		IF fsTSA_lcl_real_type EQ 4
+			EXITM @fSlv4(%fstsa_expr)
+		ELSEIF fsTSA_lcl_real_type EQ 8
+			EXITM @fSlv8(%fstsa_expr)
+		ELSE
+			.err <@fSlvTSA: data type not supported>
+			EXITM <0>
+		ENDIF
+	ELSE
+		IF fsTSA_lcl_int_type EQ 4
+			EXITM @fSlvI(%fstsa_expr)
+		ELSE
+			.err <@fSlvTSA: data type not supported>
+			EXITM <0>
+		ENDIF
+	ENDIF	
+endm
+
 

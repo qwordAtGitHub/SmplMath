@@ -16,13 +16,12 @@ include FncDrawCtrl.inc
 
 pwsz$ macro wsz:VARARG
 LOCAL pwsz?,txt,wszSize??
-	txt TEXTEQU wsz$(wsz)
 	.data
-		wszSize?? = $-txt
+		WSTR txt,wsz,0
 	.code
-	mov eax,alloc(%wszSize??)
+	mov eax,alloc(SIZEOF txt)
 	push eax
-	invoke ucCopy,txt,eax
+	invoke ucCopy,OFFSET txt,eax
 	pop eax
 	EXITM <eax>
 endm
@@ -389,7 +388,7 @@ LOCAL ps:PAINTSTRUCT
 LOCAL graphics:PVOID	
 LOCAL hBkDC:HDC
 LOCAL rect:RECT
-LOCAL pixpincx:REAL4,pixpincy:REAL4
+LOCAL pixpincx:DWORD,pixpincy:DWORD
 LOCAL hdc:HDC
 LOCAL pointf:PointF
 LOCAL pointd:PointD
@@ -677,10 +676,10 @@ LOCAL fSlvTLS()
 			mov pixpincy,rv(GetDeviceCaps,hdc,LOGPIXELSY)
 			invoke ReleaseDC,0,hdc
 
-			fSlv [ebx].view.xMin = [ebx].view.xMin - (WORD ptr lParam[0]-[esi].FNCDRAW_CNTRL.MousePos.x) * (25.4 / pixpincx) / [ebx].metrics.mmpux * 0.01 
-			fSlv [ebx].view.xMax = [ebx].view.xMax - (WORD ptr lParam[0]-[esi].FNCDRAW_CNTRL.MousePos.x) * (25.4 / pixpincx) / [ebx].metrics.mmpux * 0.01 
-			fSlv [ebx].view.yMin = [ebx].view.yMin + (WORD ptr lParam[2]-[esi].FNCDRAW_CNTRL.MousePos.y) * (25.4 / pixpincy) / [ebx].metrics.mmpuy * 0.01 
-			fSlv [ebx].view.yMax = [ebx].view.yMax + (WORD ptr lParam[2]-[esi].FNCDRAW_CNTRL.MousePos.y) * (25.4 / pixpincy) / [ebx].metrics.mmpuy * 0.01 
+			fSlv [ebx].view.xMin = [ebx].view.xMin - (WORD ptr lParam[0]-[esi].FNCDRAW_CNTRL.MousePos.x) * (25.4 / pixpincx) / [ebx].metrics.mmpux
+			fSlv [ebx].view.xMax = [ebx].view.xMax - (WORD ptr lParam[0]-[esi].FNCDRAW_CNTRL.MousePos.x) * (25.4 / pixpincx) / [ebx].metrics.mmpux 
+			fSlv [ebx].view.yMin = [ebx].view.yMin + (WORD ptr lParam[2]-[esi].FNCDRAW_CNTRL.MousePos.y) * (25.4 / pixpincy) / [ebx].metrics.mmpuy 
+			fSlv [ebx].view.yMax = [ebx].view.yMax + (WORD ptr lParam[2]-[esi].FNCDRAW_CNTRL.MousePos.y) * (25.4 / pixpincy) / [ebx].metrics.mmpuy 
 			m2m [esi].FNCDRAW_CNTRL.MousePos,lParam
 			invoke calc_metrics,hWnd,ebx
 			invoke InvalidateRect,hWnd,0,0

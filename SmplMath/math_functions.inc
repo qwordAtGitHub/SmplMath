@@ -23,7 +23,7 @@ comment *
     max(a,b)
 *
 
-
+IFNDEF __MODULE__
 fpu_const SEGMENT PAGE READONLY
 
 	align 16
@@ -224,170 +224,33 @@ fpu_seg SEGMENT PAGE PUBLIC 'CODE'
 
 	fpu_fit2pi endp	
 	
-;	;-----------------------------------------------------------------------------
-;	; calculates the sine frome the low order float value in xmm0
-;	; IN/OUT: low float value in xmm0
-;	;-----------------------------------------------------------------------------
-;	; sine approximation based on the taylor series for:
-;	; 	f(x) = sin(x*(pi/2))  with   -1 <= x <= 1
-;	; 
-;	; 	T(x) = 1/2*x*pi - 1/48*x^3*pi^3 + 1/3840*x^5*pi^5 - 1/645120*x^7*pi^7 ...
-;	;	T(x) = x*(1-(u/6)*(1-(u/20)*(1-(u/42)*(1-(u/72)*[1 - ...])))) 
-;	;	with u = (x²*pi²)/4
-;	;
-;	OPTION PROLOGUE:none
-;	OPTION EPILOGUE:none
-;	align 16
-;	sinss proc
-;		
-;		sinss_const SEGMENT page	; for the alignment
-;			sinss_2_pi	REAL8  0.6366197723675813430755351	; 2/pi
-;			sinss_05pi  REAL8  1.5707963267948966192313217	; 0.5*pi 
-;	
-;			sinss_qdrnt	REAl4  0.0
-;						REAl4  1.0
-;						REAl4  0.0
-;						REAl4 -1.0
-;			
-;			sinss_c3 	REAL8 -0.03426945972600471742650865	; (pi^2)/(4*72)
-;			sinss_c2 	REAl8 -0.05874764524457951558830054	; (pi^2)/(4*42)
-;			sinss_c1 	REAL8 -0.12337005501361698273543114	; (pi^2)/(4*20)
-;			sinss_c0 	REAL8 -0.41123351671205660911810379	; (pi^2)/(4*6)
-;		sinss_const ENDS
-;	
-;		cvtss2sd xmm0,xmm0
-;		mulsd xmm0,sinss_2_pi
-;		cvttsd2si eax,xmm0
-;		cvtsi2sd xmm1,eax
-;		mov edx,eax
-;		subsd xmm0,xmm1	
-;		and edx,3
-;		jz @calc
-;		movsd xmm1,xmm0
-;		cvtss2sd xmm0,sinss_qdrnt[edx*4]
-;	
-;		and eax,80000003h
-;		js @s
-;		jnp @np
-;		jp @p
-;	@s:	test eax,2
-;		jz @p
-;	@np:	subsd xmm0,xmm1
-;		jmp @calc	
-;	@p:		addsd xmm0,xmm1
-;	@calc:
-;	
-;		movsd xmm2,xmm0
-;		cvtss2sd xmm1,sinss_qdrnt[4]
-;		movsd xmm3,sinss_c3
-;		mulsd xmm2,xmm2
-;		mulsd xmm3,xmm2
-;		addsd xmm3,xmm1
-;		mulsd xmm0,sinss_05pi
-;		
-;		mulsd xmm3,xmm2
-;		mulsd xmm3,sinss_c2
-;		addsd xmm3,xmm1
-;		     
-;		mulsd xmm3,xmm2
-;		mulsd xmm3,sinss_c1
-;		addsd xmm3,xmm1
-;		     
-;		mulsd xmm3,xmm2
-;		mulsd xmm3,sinss_c0
-;		addsd xmm3,xmm1
-;		     
-;		mulsd xmm0,xmm3
-;		cvtsd2ss xmm0,xmm0
-;	
-;		ret
-;	
-;	sinss endp
-;
-;	align 16
-;	sinsd proc
-;
-;		sinss_const SEGMENT page
-;			sinsd_2_pi	REAL8  0.6366197723675813430755351	; 2/pi
-;			sinsd_05pi  REAL8  1.5707963267948966192313217	; 0.5*pi 
-;	
-;			sinsd_qdrnt	REAl4  0.0
-;						REAl4  1.0
-;						REAl4  0.0
-;						REAl4 -1.0
-;			;sinsd_c6 	REAL8 -0.01174952904891590311766011	; (pi^2)/(4*210)
-;			;sinsd_c5	REAL8 -0.01581667371969448496608092	; (pi^2)/(4*156)
-;			sinsd_c4 	REAL8 -0.02243091909338490595189657
-;			sinsd_c3 	REAL8 -0.03426945972600471742650865	; (pi^2)/(4*72)
-;			sinsd_c2 	REAl8 -0.05874764524457951558830054	; (pi^2)/(4*42)
-;			sinsd_c1 	REAL8 -0.12337005501361698273543114	; (pi^2)/(4*20)
-;			sinsd_c0 	REAL8 -0.41123351671205660911810379	; (pi^2)/(4*6)
-;		sinss_const ENDS
-;
-;		mulsd xmm0,sinsd_2_pi
-;		cvttsd2si eax,xmm0
-;		cvtsi2sd xmm1,eax
-;		mov edx,eax
-;		subsd xmm0,xmm1	
-;		and edx,3
-;		jz @calc
-;		movsd xmm1,xmm0
-;		cvtss2sd xmm0,sinsd_qdrnt[edx*4]
-;	
-;		and eax,80000003h
-;		js @s
-;		jnp @np
-;		jp @p
-;	@s:	test eax,2
-;		jz @p
-;	@np:	subsd xmm0,xmm1
-;		jmp @calc	
-;	@p:		addsd xmm0,xmm1
-;	@calc:
-;	
-;		movsd xmm2,xmm0
-;		cvtss2sd xmm1,sinsd_qdrnt[4]
-;		movsd xmm3,sinsd_c4
-;		mulsd xmm2,xmm2
-;		mulsd xmm3,xmm2
-;		addsd xmm3,xmm1
-;		mulsd xmm0,sinsd_05pi
-;
-;;		mulsd xmm3,xmm2
-;;		mulsd xmm3,sinsd_c5
-;;		addsd xmm3,xmm1
-;;
-;;		mulsd xmm3,xmm2
-;;		mulsd xmm3,sinsd_c4
-;;		addsd xmm3,xmm1
-;		
-;		mulsd xmm3,xmm2
-;		mulsd xmm3,sinsd_c3
-;		addsd xmm3,xmm1		
-;		
-;		mulsd xmm3,xmm2
-;		mulsd xmm3,sinsd_c2
-;		addsd xmm3,xmm1
-;		     
-;		mulsd xmm3,xmm2
-;		mulsd xmm3,sinsd_c1
-;		addsd xmm3,xmm1
-;		     
-;		mulsd xmm3,xmm2
-;		mulsd xmm3,sinsd_c0
-;		addsd xmm3,xmm1
-;		     
-;		mulsd xmm0,xmm3
-;	
-;		ret
-;	
-;	sinsd endp	
-;	
-;	OPTION PROLOGUE:prologuedef
-;	OPTION EPILOGUE:epiloguedef	
-
 fpu_seg ENDS
+
+ELSE
+	EXTERNDEF fpu_const_r4_one		:REAL4
+	EXTERNDEF fpu_const_r4_1div2	:REAL4
+	EXTERNDEF fpu_const_r8_pi_div_2	:REAL8
+	EXTERNDEF fpu_const_r10_log 	:REAL10
+	EXTERNDEF fpu_const_r10_ln		:REAL10
+	EXTERNDEF fpu_const_r10_2pi		:REAL10
+	EXTERNDEF fpu_const_r10_r2d		:REAL10
+	EXTERNDEF fpu_const_r10_d2r		:REAL10
+	EXTERNDEF fpu_const_r8_log 		:REAL8
+	EXTERNDEF fpu_const_r4_log 		:REAL4
+	EXTERNDEF fpu_const_r8_ln		:REAL8
+	EXTERNDEF fpu_const_r4_ln		:REAL4
+	EXTERNDEF fpu_const_r8_2pi		:REAL8
+	EXTERNDEF fpu_const_r4_2pi		:REAL4
+	EXTERNDEF fpu_const_r8_r2d		:REAL8
+	EXTERNDEF fpu_const_r4_r2d		:REAL4
+	EXTERNDEF fpu_const_r8_d2r		:REAL8
+	EXTERNDEF fpu_const_r4_d2r		:REAL4
 	
+	fpu_st1_pow_st0 proto stdcall
+	fpu_exp proto stdcall
+	fpu_root proto stdcall
+	fpu_fit2pi proto stdcall
+ENDIF	
 FNCD_VERSION	EQU 1
 FNCD_NARGS		EQU 2
 FNCD_NREGS		EQU 4

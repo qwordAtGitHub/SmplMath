@@ -1,4 +1,6 @@
-; by qWord @ www.masmforum.com
+; by qWord, 2011
+
+IFNDEF __SMPLMATH__UNICODE__
 
 ;/*****************************************************************/
 ;/*             WSTR - macro procedure                            */
@@ -107,19 +109,19 @@ WSTR MACRO lbl,args:VARARG
 endm
 
 ;/***************************************************/
-;/*               wsz$ , macro function             */
+;/*               w$ , macro function               */
 ;/* This macro is the function-version of WSTR.     */
 ;/* In contrast to WSTR, the created string is      */
 ;/* zero terminated. The macro assumes to be called */
 ;/* from the .code-section and places the string    */
 ;/* in the .data-section.                           */
 ;/* Example:                                        */
-;/*      mov esi,wsz$("my string",13,10,'xxyz')     */
+;/*      mov esi,w$("my string",13,10,'xxyz')       */
 ;/*                                    qWord, 2011  */
 ;/***************************************************/
-wsz$ MACRO args:VARARG
+w$ MACRO args:VARARG
     .data
-        UCSTR ,args,0
+        WSTR ,args,0
     .code
     ucsz_retval TEXTEQU <OFFSET >,ucstr_lbl
     EXITM ucsz_retval
@@ -235,7 +237,7 @@ WCSTR MACRO lbl,args:VARARG
                             uccstr_flg=0
                             EXITM
                         ENDIF
-                        uccstr_char SUBSTR <  5ch00h28h29h3ch3eh21h22h09h25h26h0ah,0dh>,uccstr_pos*3,3+4*(uccstr_pos/12)
+                        uccstr_char SUBSTR <  5ch00h28h29h3ch3eh21h22h09h25h26h0dh,0ah>,uccstr_pos*3,3+4*(uccstr_pos/12)
                         uccstr_esc = 0
                         dw uccstr_char
                     ENDIF
@@ -259,18 +261,18 @@ WCSTR MACRO lbl,args:VARARG
 endm
 
 ;/***************************************************/
-;/*               wcsz$ , macro function            */
+;/*               wc$ , macro function              */
 ;/* This macro is the function-version of WCSTR.    */
 ;/* In contrast to WCSTR, the created string is     */
 ;/* zero terminated. The macro assumes to be called */
 ;/* from the .code-section and places the string    */
 ;/* in the .data-section.                           */
-;/*     mov esi,wcsz$("\lHello World\r\n:-\b")      */
+;/*     mov esi,wc$("\lHello World\r\n:-\b")        */
 ;/*                                    qWord, 2011  */
 ;/***************************************************/
-wcsz$ MACRO args:VARARG
+wc$ MACRO args:VARARG
     .data
-        UCCSTR ,args,0
+        WCSTR ,args,0
     .code
     uccsz_retval TEXTEQU <OFFSET >,uccstr_lbl
     EXITM uccsz_retval
@@ -328,6 +330,8 @@ SML_CHI     EQU <03C7h>
 SML_PSI     EQU <03C8h>
 SML_OMEGA   EQU <03C9h>
 
-
+ELSE
+	__SMPLMATH__UNICODE__ TEXTEQU <>
+ENDIF
 
 
