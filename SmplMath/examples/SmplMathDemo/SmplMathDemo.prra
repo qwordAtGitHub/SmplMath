@@ -45,6 +45,7 @@ F10=-6,0,1,-10,-32,1372,543,0,..\..\SmplMath.inc
 C10=0,0
 B10=
 M10=
+Path=C:\RadAsm3
 [Make]
 Make=0
 0=Window Release,'/v "$R"',"$R.res",' /c /coff /Cp "$C"',"$C.obj",'/SUBSYSTEM:Windows /RELEASE /VERSION:3.0 /OUT:$O $C $M $R',"$C.exe",'',

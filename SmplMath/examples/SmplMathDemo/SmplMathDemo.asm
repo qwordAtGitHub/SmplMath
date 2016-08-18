@@ -35,9 +35,9 @@ xchg8 macro arg1,arg2
 	mov DWORD ptr arg2,edx
 endm
 
-CallBack1 proto x:REAL8,py: ptr REAL8
-CallBack2 proto x:REAL8,py: ptr REAL8
-CallBack3 proto x:REAL8,py: ptr REAL8
+CallBack1 proto x:REAL8,py: ptr REAL8,userData:PVOID
+CallBack2 proto x:REAL8,py: ptr REAL8,userData:PVOID
+CallBack3 proto x:REAL8,py: ptr REAL8,userData:PVOID
 
 WND_DATA struct
 	hCtrl1	HWND	?
@@ -242,7 +242,7 @@ LOCAL sz[256]:TCHAR
 WndProc endp
 
 align 16
-CallBack1 proc x:REAL8,py: ptr REAL8
+CallBack1 proc x:REAL8,py: ptr REAL8,userData:PVOID
 
 	mov edx,py
 	fSlv REAL8 ptr [edx] = limit(tan(x),10,-10)
@@ -252,7 +252,7 @@ CallBack1 proc x:REAL8,py: ptr REAL8
 CallBack1 endp
 
 align 16
-CallBack2 proc x:REAL8,py: ptr REAL8
+CallBack2 proc x:REAL8,py: ptr REAL8,userData:PVOID
 	
 	mov edx,py
 	
@@ -278,7 +278,7 @@ CallBack2 proc x:REAL8,py: ptr REAL8
 CallBack2 endp
 
 align 16
-CallBack3 proc x:REAL8,py: ptr REAL8
+CallBack3 proc x:REAL8,py: ptr REAL8,userData:PVOID
 
 	mov edx,py
 	IF @Version GE 800
