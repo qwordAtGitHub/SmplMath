@@ -744,8 +744,7 @@ default_fnc_dscptr2 <atan2>,nArgs=2,fpu=-1,x64=-1
 
 fslv_fnc_asin macro
   	fld st
-  	fmulp st,st
-  	fld1
+  	fmul st,st
   	fsubr fpu_const_r4_one
   	fsqrt
   	fpatan
