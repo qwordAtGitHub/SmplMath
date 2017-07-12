@@ -1717,7 +1717,6 @@ fcmpx macro cmpSuffix,approxEQ:=<0>,args:VARARG ;cmpSuffix,approxEQ:=<0>,a:req,b
 				fcmpx_factor TEXTEQU @fSlvCreateConstant(get_unique_lbl(<fcmp_lbl3_>),%fcmpx_factor,SDWORD)
 				lfs_no_int_consts = fcmpx_tmpeq
 			ENDIF
-			FSBE_PROC %FSBE_LOAD_ARG,%fcmpx_factor,0
 		ENDIF
 		IF @IsIntegerType(%fcmpx_factor) NE 4
 			.err <fTest: invalid exp_diff: expect integer constant or [S]DWORD-variable/register>
