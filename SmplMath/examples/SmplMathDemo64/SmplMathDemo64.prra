@@ -9,6 +9,7 @@ Api=
 C1=0
 B1=
 M1=
+Path=C:\RadAsm3
 [Make]
 Make=0
 0=Window Release,'/v "$R"',"$R.res",'/win64 "$C"',"$C.obj",'/SUBSYSTEM:WINDOWS /RELEASE /OUT:$O $C $R',"$C.exe",'',

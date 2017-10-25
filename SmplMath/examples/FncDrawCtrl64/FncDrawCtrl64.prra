@@ -25,6 +25,7 @@ F5=-4,0,2,100,100,1442,546,1,FncDrawCtrl64.def
 C5=
 B5=
 M5=
+Path=C:\RadAsm3
 [Make]
 Make=0
 0=Dll Release,'/v "$R"',"$R.res",' /win64 "$C"',"$C.obj",'/SUBSYSTEM:WINDOWS /RELEASE /DLL /DEF:$D /OUT:$O $C $M $R',"..\SmplMathDemo64\$C.dll",'',

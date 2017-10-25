@@ -1,1 +1,0 @@
-"pow.obj" "exp.obj" "fit2pi.obj" "root.obj" "root2.obj" "zero_test.obj" "is_integer.obj" "FPU_CONST_R4.obj" "FPU_CONST_R8.obj" "FPU_CONST_R10.obj" "SSE2_CONST_R4.obj" "SSE2_CONST_R8.obj" "SSE2_CONST_PI.obj" "SSE2_CONST_EXPD.obj"

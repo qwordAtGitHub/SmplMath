@@ -1,4 +1,4 @@
-xx.xx.2017  Version 2.0.2
+25.10.2017  Version 2.0.2
             added:       - log2d(x) (SSE2, REAL8 only, x86 only): approximation of log2(x), relativ error less than 2.5E-15.
             bugfix:      - ScanForFlt(): invalid hexadecimal initializer were accepted (invalid leading digit)
                          - Summation of two identical bracket expressions did cause an unwarranted error message.

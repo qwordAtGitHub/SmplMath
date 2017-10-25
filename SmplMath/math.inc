@@ -16,7 +16,7 @@ IFDEF __SMPLMATH__
 	.err <SmplMath: double inclusion of math.inc>
 	fslv_glb_error = 1
 ELSE
-	__SMPLMATH__ TEXTEQU <020001>
+	__SMPLMATH__ TEXTEQU <020002>
 ENDIF
 
 IF @WordSize EQ 4
